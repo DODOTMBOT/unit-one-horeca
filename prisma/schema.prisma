@@ -74,11 +74,18 @@ model Material {
 }
 
 // 6. ЗАКАЗЫ
+enum OrderStatus {
+  NEW          // Новый заказ (горит красный бейдж)
+  PROCESSING   // В работе (бейдж пропадает из админки, но может быть в хедере)
+  COMPLETED    // Завершен
+  CANCELLED    // Отменен
+}
+
 model Order {
   id          String      @id @default(uuid())
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-  status      String      @default("PENDING")
+  status      OrderStatus @default(NEW)
   isPaid      Boolean     @default(false)
   amount      Int         
   

@@ -39,7 +39,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<any
           <ProfileAlert />
         </div>
 
-        {/* ЗАГОЛОВОК СЕКЦИИ */}
         <div className="mt-20 mb-20 flex items-end justify-between">
           <div>
             <span className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-4 block">
@@ -57,18 +56,20 @@ export default async function Home({ searchParams }: { searchParams: Promise<any
           </div>
         </div>
 
-        {/* СЕТКА ТОВАРОВ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-10 gap-y-24">
           {products.map((product: any) => {
-            const badgeColorKey = product.badgeColor || 'neutral';
-            const badgeClass = badgePalette[badgeColorKey] || badgePalette.neutral;
-
             return (
-              <Link 
+              <div 
                 key={product.id} 
-                href={`/checkout/${product.id}`} 
-                className="group flex flex-col h-full text-left no-underline"
+                className="group relative flex flex-col h-full text-left"
               >
+                {/* НЕВИДИМАЯ ССЫЛКА ПОВЕРХ ВСЕЙ КАРТОЧКИ */}
+                <Link 
+                  href={`/checkout/${product.id}`} 
+                  className="absolute inset-0 z-20 shadow-none outline-none"
+                  aria-label={product.title}
+                />
+
                 <div 
                   className="relative aspect-[4/5] w-full overflow-hidden rounded-[60px] mb-8 transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(30,27,75,0.15)] group-hover:-translate-y-2"
                   style={{ backgroundColor: product.bgColor || '#F8FAFC' }}
@@ -117,18 +118,17 @@ export default async function Home({ searchParams }: { searchParams: Promise<any
                         </span>
                       </div>
                       
-                      <div className="w-16 h-16 rounded-[24px] bg-[#1e1b4b] flex items-center justify-center text-white shadow-xl shadow-indigo-900/10 transition-all duration-500 transform group-hover:rotate-[-45deg] group-hover:bg-indigo-600 group-hover:rounded-[30px]">
+                      <div className="relative z-10 w-16 h-16 rounded-[24px] bg-[#1e1b4b] flex items-center justify-center text-white shadow-xl shadow-indigo-900/10 transition-all duration-500 transform group-hover:rotate-[-45deg] group-hover:bg-indigo-600 group-hover:rounded-[30px]">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
                       </div>
                   </div>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* ФУТЕР С РЕКВИЗИТАМИ ДЛЯ ЮKASSA */}
       <footer className="w-full bg-slate-50 border-t border-slate-200 py-16">
         <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
@@ -150,7 +150,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<any
                 <p>Email: ar.em.v@yandex.ru</p>
                 <p>Тел: +7 (925) 530-73-30</p>
                 <div className="pt-4 flex md:justify-end gap-6 opacity-40">
-                   {/* Логотипы платежных систем — хороший тон для ЮKassa */}
                    <span className="text-[10px]">VISA</span>
                    <span className="text-[10px]">MASTERCARD</span>
                    <span className="text-[10px]">МИР</span>

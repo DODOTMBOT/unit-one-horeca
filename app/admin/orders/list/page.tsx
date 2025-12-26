@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useSWRConfig } from "swr"; 
 import { 
   User, 
   Package, 
@@ -14,46 +15,75 @@ import {
   ChevronDown, 
   LayoutGrid,
   PlayCircle,
-  ArrowRight,
   ChevronLeft,
   ShoppingBag
 } from "lucide-react";
 
-type OrderStatus = 'paid' | 'in_progress' | 'completed';
+// Типы для фронтенда
+type OrderStatus = 'new' | 'processing' | 'completed';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
-  const [filter, setFilter] = useState<'all' | 'materials' | 'requirements' | 'in_progress' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'materials' | 'requirements' | 'processing' | 'completed'>('all');
+  
+  const { mutate } = useSWRConfig(); 
 
-  useEffect(() => {
-    const fetchOrders = async () => {
+  // Загрузка заказов и приведение статусов к единому виду
+  const fetchOrders = async () => {
+    try {
       const data = await getAdminOrders();
       const enrichedData = data.map((order: any) => {
-        let currentStatus: OrderStatus = 'paid';
-        if (order.status === 'IN_PROGRESS') currentStatus = 'in_progress';
-        if (order.status === 'COMPLETED') currentStatus = 'completed';
-        if (order.status === 'PAID') currentStatus = 'paid';
+        let currentStatus: OrderStatus = 'new';
+        
+        // Строгое соответствие Enum из БД
+        if (order.status === 'PROCESSING') currentStatus = 'processing';
+        else if (order.status === 'COMPLETED') currentStatus = 'completed';
+        else currentStatus = 'new'; // Сюда упадут NEW, PAID, PENDING
+        
         return { ...order, status: currentStatus };
       });
       setOrders(enrichedData);
-    };
+    } catch (error) {
+      console.error("Fetch error:", error);
+    }
+  };
+
+  useEffect(() => {
     fetchOrders();
   }, []);
 
-  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, nextStep: OrderStatus) => {
     try {
+      // 1. Оптимистичное обновление (для скорости интерфейса)
       setOrders(prev => prev.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
+        order.id === orderId ? { ...order, status: nextStep } : order
       ));
+
+      // 2. Сопоставление для БД (статус должен быть в UPPERCASE для Prisma Enum)
+      const dbStatus = nextStep === 'completed' ? 'COMPLETED' : 'PROCESSING';
+
+      // 3. Запрос к API
       const response = await fetch("/api/admin/orders/status", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId, status: newStatus.toUpperCase() })
+        body: JSON.stringify({ 
+          orderId, 
+          status: dbStatus 
+        })
       });
-      if (!response.ok) throw new Error("Error saving status");
+
+      if (!response.ok) throw new Error("Status update failed");
+
+      // 4. СИНХРОНИЗАЦИЯ: Обновляем бейдж в хедере по ключу API
+      await mutate("/api/admin/orders/count");
+      
+      // 5. Перестраховка: обновляем локальные данные из БД
+      fetchOrders();
+
     } catch (error) {
-      console.error("Failed:", error);
+      console.error("Update error:", error);
+      fetchOrders(); // Откат изменений при ошибке
     }
   };
 
@@ -66,7 +96,7 @@ export default function AdminOrdersPage() {
     const hasAnswers = order.items.some((i: any) => i.answers && Object.keys(i.answers).length > 0);
     if (filter === 'all') return true; 
     if (filter === 'completed') return order.status === 'completed';
-    if (filter === 'in_progress') return order.status === 'in_progress';
+    if (filter === 'processing') return order.status === 'processing';
     if (filter === 'materials') return hasMaterials; 
     if (filter === 'requirements') return hasAnswers;
     return true;
@@ -76,7 +106,7 @@ export default function AdminOrdersPage() {
     { id: 'all', label: 'Все', icon: LayoutGrid, color: 'bg-[#1e1b4b]' },
     { id: 'materials', label: 'Вложения', icon: Package, color: 'bg-emerald-500' },
     { id: 'requirements', label: 'Данные', icon: FileEdit, color: 'bg-orange-500' },
-    { id: 'in_progress', label: 'В работе', icon: PlayCircle, color: 'bg-indigo-500' },
+    { id: 'processing', label: 'В работе', icon: PlayCircle, color: 'bg-indigo-500' },
     { id: 'completed', label: 'Завершены', icon: CheckCircle, color: 'bg-slate-400' },
   ] as const;
 
@@ -84,7 +114,6 @@ export default function AdminOrdersPage() {
     <div className="min-h-screen bg-[#F1F3F6] pb-10 font-sans">
       <div className="mx-auto max-w-[1400px] px-4 pt-6">
         
-        {/* ХЕДЕР */}
         <header className="sticky top-4 z-40 mb-6 flex h-16 items-center justify-between rounded-3xl border border-slate-200 bg-white/90 px-6 backdrop-blur-xl shadow-sm">
           <div className="flex items-center gap-4">
             <Link href="/admin" className="flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-100 hover:scale-110 transition-all">
@@ -98,7 +127,6 @@ export default function AdminOrdersPage() {
           </div>
         </header>
 
-        {/* ТАБЫ */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
           {tabs.map((tab) => (
             <button
@@ -119,33 +147,18 @@ export default function AdminOrdersPage() {
           ))}
         </div>
 
-        {/* СПИСОК ЗАКАЗОВ */}
         <div className="space-y-2">
           <AnimatePresence mode="popLayout">
             {filteredOrders.map((order: any) => {
               const hasAnswers = order.items.some((i: any) => i.answers && Object.keys(i.answers).length > 0);
               const isExpanded = expandedOrders[order.id];
-              
-              // Получаем ID пользователя для ссылки (пробуем разные варианты, как они могут прийти из API)
               const userId = order.userId || order.user?.id;
 
               return (
                 <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={order.id} className="group rounded-[24px] border border-white bg-white/70 p-3 backdrop-blur-sm transition-all hover:bg-white hover:shadow-md">
-                  
-                  {/* СТРОГИЙ ГРИД: 
-                      1 колонка: User (занимает все свободное место)
-                      2 колонка: Статусы (ширина по содержимому, но не меньше минимума)
-                      3 колонка: Цена и Кнопка (строго 280px)
-                  */}
                   <div className="grid grid-cols-[1fr_auto_280px] items-center gap-4 px-2">
-                    
-                    {/* 1. ПОЧТА - ССЫЛКА НА ПРОФИЛЬ */}
-                    {/* min-w-0 нужен для правильной работы break-words внутри flex/grid */}
                     <div className="min-w-0">
-                      <Link 
-                        href={`/admin/users/${userId}`} 
-                        className="inline-flex items-center gap-3 group/user hover:opacity-70 transition-opacity max-w-full"
-                      >
+                      <Link href={`/admin/users/${userId}`} className="inline-flex items-center gap-3 group/user hover:opacity-70 transition-opacity max-w-full">
                         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${order.status === 'completed' ? 'bg-slate-100 text-slate-400' : 'bg-[#1e1b4b] text-white shadow-sm'}`}>
                           <User size={18} />
                         </div>
@@ -160,59 +173,56 @@ export default function AdminOrdersPage() {
                       </Link>
                     </div>
 
-                    {/* 2. СТАТУСЫ (Центр) */}
                     <div className="flex flex-wrap items-center justify-end gap-1.5 px-2">
                       {hasAnswers && (
-                        <button 
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleOrder(order.id); }} 
-                          className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tighter hover:bg-orange-100 transition-colors"
-                        >
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleOrder(order.id); }} className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tighter hover:bg-orange-100 transition-colors">
                           <FileEdit size={10} /> ДАННЫЕ <ChevronDown size={10} className={isExpanded ? 'rotate-180 transition-transform' : ''} />
                         </button>
                       )}
-                      {order.status === 'in_progress' && (
-                        <div className="flex items-center gap-1.5 bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase whitespace-nowrap">
+                      
+                      {/* СТАТУСЫ ДЛЯ АДМИНА */}
+                      {order.status === 'new' && (
+                        <div className="bg-red-50 text-red-500 px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase border border-red-100">
+                          НОВЫЙ
+                        </div>
+                      )}
+                      {order.status === 'processing' && (
+                        <div className="flex items-center gap-1.5 bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase">
                           <PlayCircle size={10} className="animate-pulse" /> РАБОТА
                         </div>
                       )}
                       {order.status === 'completed' && (
-                        <div className="flex items-center gap-1.5 bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase">
                           <CheckCircle size={10} /> ГОТОВО
                         </div>
                       )}
                     </div>
 
-                    {/* 3. ЦЕНА + ДЕЙСТВИЕ (Фикс ширина справа) */}
                     <div className="flex items-center justify-end gap-6 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100 h-full">
                       <div className="text-right shrink-0">
                         <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter block leading-none mb-1">Сумма</span>
-                        <div className="text-[16px] font-black text-[#1e1b4b] tracking-tighter leading-none">
-                          {order.amount.toLocaleString()} ₽
-                        </div>
+                        <div className="text-[16px] font-black text-[#1e1b4b] tracking-tighter leading-none">{order.amount.toLocaleString()} ₽</div>
                       </div>
 
                       <div className="w-[140px] shrink-0">
                         {order.status === 'completed' ? (
-                          <div className="w-full text-center py-2 rounded-xl text-[8px] font-black uppercase bg-slate-50 text-slate-400 border border-slate-100 opacity-60 cursor-default">
-                            АРХИВ
-                          </div>
+                          <div className="w-full text-center py-2 rounded-xl text-[8px] font-black uppercase bg-slate-50 text-slate-400 border border-slate-100 opacity-60">АРХИВ</div>
                         ) : (
                           <button 
-                            onClick={() => updateOrderStatus(order.id, order.status === 'in_progress' ? 'completed' : 'in_progress')}
-                            className={`w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[8px] font-black uppercase transition-all shadow-sm active:scale-95 ${
-                              order.status === 'in_progress' 
+                            onClick={() => updateOrderStatus(order.id, order.status === 'processing' ? 'completed' : 'processing')}
+                            className={`w-full py-2 rounded-xl text-[8px] font-black uppercase transition-all shadow-sm active:scale-95 ${
+                              order.status === 'processing' 
                               ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
                               : 'bg-[#1e1b4b] text-white hover:bg-indigo-600'
                             }`}
                           >
-                            {order.status === 'in_progress' ? 'ЗАВЕРШИТЬ' : 'В РАБОТУ'}
+                            {order.status === 'processing' ? 'ЗАВЕРШИТЬ' : 'В РАБОТУ'}
                           </button>
                         )}
                       </div>
                     </div>
                   </div>
 
-                  {/* Раскрывающийся блок с ответами */}
                   <AnimatePresence>
                     {isExpanded && (
                       <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">

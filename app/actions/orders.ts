@@ -36,10 +36,10 @@ export async function createOrderFromCart() {
         data: {
           userId: user.id,
           amount: totalAmount,
-          isPaid: true,
-          status: "PAID",
+          isPaid: true, 
+          // ИСПРАВЛЕНИЕ: Используем статус "NEW", так как "PAID" отсутствует в OrderStatus Enum
+          status: "NEW", 
           userEmail: user.email,
-          // Теперь productId живет в OrderItem, а не в Order
           items: {
             create: user.cart!.items.map((item) => ({
               productId: item.productId,
@@ -58,8 +58,10 @@ export async function createOrderFromCart() {
       return newOrder;
     });
 
+    // Обновляем пути, чтобы бейджи и списки перерисовались
     revalidatePath("/cart");
     revalidatePath("/admin/orders");
+    revalidatePath("/"); // Чтобы обновился счетчик в хедере
     
     return { success: true, orderId: order.id };
   } catch (error: any) {

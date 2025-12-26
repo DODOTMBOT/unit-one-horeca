@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createOrderFromCart } from "@/app/actions/orders";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -8,8 +8,14 @@ import { ShieldCheck, Lock } from "lucide-react";
 
 export default function CartCheckoutButton({ totalAmount }: { totalAmount: number }) {
   const [loading, setLoading] = useState(false);
-  const [agreed, setAgreed] = useState(false); // Состояние для чекбокса
+  const [agreed, setAgreed] = useState(false); 
+  const [mounted, setMounted] = useState(false); // Добавили стейт для защиты от гидратации
   const router = useRouter();
+
+  // Гарантируем, что компонент отрисуется только на клиенте для корректного отображения чисел
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePay = async () => {
     if (totalAmount <= 0 || !agreed) return;
@@ -20,7 +26,6 @@ export default function CartCheckoutButton({ totalAmount }: { totalAmount: numbe
       const res = await createOrderFromCart();
 
       if (res.success) {
-        // Когда подключишь ЮKassa, здесь будет редирект на их платежную форму
         alert(`Заказ успешно оформлен! \nВ боевом режиме здесь откроется окно ЮKassa.`);
         router.refresh();
         router.push("/admin/orders");
@@ -35,9 +40,13 @@ export default function CartCheckoutButton({ totalAmount }: { totalAmount: numbe
     }
   };
 
+  // Пока компонент не смонтирован на клиенте, рендерим заглушку или скелетон
+  if (!mounted) {
+    return <div className="w-full h-16 bg-white/5 animate-pulse rounded-[24px]" />;
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      {/* ЧЕКБОКС СОГЛАСИЯ (ОБЯЗАТЕЛЬНО ДЛЯ ЮKASSA) */}
       <div 
         className="flex items-start gap-3 px-2 cursor-pointer group" 
         onClick={() => setAgreed(!agreed)}
@@ -72,7 +81,6 @@ export default function CartCheckoutButton({ totalAmount }: { totalAmount: numbe
         </p>
       </div>
 
-      {/* КНОПКА ОПЛАТЫ */}
       <button
         onClick={handlePay}
         disabled={loading || totalAmount === 0 || !agreed}
@@ -87,12 +95,12 @@ export default function CartCheckoutButton({ totalAmount }: { totalAmount: numbe
         ) : (
           <>
             <Lock size={14} className={agreed ? "text-indigo-500" : "text-white/20"} />
-            <span>Оплатить {totalAmount.toLocaleString()} ₽</span>
+            {/* Явно указываем локаль ru-RU для предотвращения ошибок гидратации */}
+            <span>Оплатить {totalAmount.toLocaleString('ru-RU')} ₽</span>
           </>
         )}
       </button>
 
-      {/* ВИЗУАЛЬНЫЕ МАРКЕРЫ БЕЗОПАСНОСТИ ДЛЯ МОДЕРАТОРА */}
       <div className="flex flex-col items-center gap-4 pt-2 border-t border-white/5">
         <div className="flex items-center gap-6 opacity-30 grayscale contrast-200">
            <span className="text-[10px] font-black tracking-tighter">VISA</span>

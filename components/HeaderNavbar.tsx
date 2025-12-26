@@ -8,7 +8,6 @@ export default function HeaderNavbar({ menuItems }: { menuItems: any[] }) {
   const pathname = usePathname();
 
   return (
-    /* Изменили bg-white/40 на bg-white и убрали shadow-inner для чистоты */
     <nav className="hidden lg:flex items-center gap-1 bg-white p-1.5 rounded-full border border-slate-100 shadow-sm">
       <Link 
         href="/" 

@@ -1,12 +1,33 @@
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+"use client";
+
+import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Globe, LayoutDashboard } from "lucide-react";
+import { Globe, LayoutDashboard, Loader2 } from "lucide-react";
+import useSWR from "swr";
 
-export default async function AdminDashboard() {
-  const session = await getServerSession(authOptions);
-  
+// Функция для получения данных
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+export default function AdminDashboard() {
+  const { data: session, status } = useSession();
+
+  // Получаем количество заказов (только статус NEW для этой плитки)
+  // Мы создадим отдельный роут или используем параметры, но пока берем общий счетчик
+  const { data: countData } = useSWR("/api/admin/orders/count", fetcher, {
+    refreshInterval: 30000, // Обновлять каждые 30 секунд
+  });
+
+  const newOrdersCount = countData?.count || 0;
+
+  if (status === "loading") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
+        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
   if (!session) {
     redirect("/api/auth/signin");
   }
@@ -92,11 +113,18 @@ export default async function AdminDashboard() {
             </div>
           </Link>
 
-          {/* ЗАКАЗЫ - ЗЕЛЕНЫЙ */}
+          {/* ЗАКАЗЫ - ЗЕЛЕНЫЙ (С БЕЙДЖЕМ) */}
           <Link 
             href="/admin/orders"
             className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-2 overflow-hidden"
           >
+            {/* Анимированный бейдж количества новых заказов */}
+            {newOrdersCount > 0 && (
+              <div className="absolute right-8 top-8 z-10 flex h-10 w-10 animate-bounce items-center justify-center rounded-full bg-red-500 font-black text-white shadow-xl shadow-red-500/40">
+                {newOrdersCount > 9 ? "9+" : newOrdersCount}
+              </div>
+            )}
+
             <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-emerald-500/5 blur-2xl transition-all group-hover:bg-emerald-500/20" />
             <div className="relative">
               <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
