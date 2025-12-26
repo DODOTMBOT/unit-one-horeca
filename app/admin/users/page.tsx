@@ -56,23 +56,6 @@ export default async function UsersHubPage() {
             </div>
           </Link>
 
-          {/* Блок 2: Редакция каталога - СИНИЙ */}
-          <Link 
-            href="/admin/products/manage"
-            className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl transition-all group-hover:bg-blue-500/20" />
-            <div className="relative">
-              <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
-                Редакция каталога
-              </h2>
-              <div className="mt-2 h-1.5 w-12 rounded-full bg-blue-500 transition-all group-hover:w-20" />
-              <p className="mt-4 text-[11px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-                Быстрый переход к управлению действующими товарами
-              </p>
-            </div>
-          </Link>
-
         </div>
       </div>
     </div>

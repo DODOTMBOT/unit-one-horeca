@@ -39,73 +39,23 @@ export default async function ProductsHubPage() {
         {/* СЕТКА БЛОКОВ */}
         <div className="grid gap-8 sm:grid-cols-2">
           
-          {/* Блок 1: КАТАЛОГ - ИНДИГО */}
+          {/* Блок 1: Заказы*/}
           <Link 
-            href="/admin/products/manage"
+            href="/admin/orders/list"
             className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 overflow-hidden"
           >
             <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-indigo-500/5 blur-2xl transition-all group-hover:bg-indigo-500/20" />
             <div className="relative">
               <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
-                Редакция каталога
+                Заказы
               </h2>
               <div className="mt-2 h-1 w-12 rounded-full bg-indigo-500 transition-all group-hover:w-20" />
               <p className="mt-4 text-[11px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-                Список всех товаров, изменение данных и удаление
+                Список всех заказов, статусы и управление
               </p>
             </div>
           </Link>
 
-          {/* Блок 2: КАТЕГОРИИ - РОЗОВЫЙ/ФУКСИЯ */}
-          <Link 
-            href="/admin/products/categories"
-            className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-pink-500/10 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-pink-500/5 blur-2xl transition-all group-hover:bg-pink-500/20" />
-            <div className="relative">
-              <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
-                Категории
-              </h2>
-              <div className="mt-2 h-1 w-12 rounded-full bg-pink-500 transition-all group-hover:w-20" />
-              <p className="mt-4 text-[11px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-                Структура каталога и группировка решений
-              </p>
-            </div>
-          </Link>
-
-          {/* Блок 3: ТИПЫ - БИРЮЗОВЫЙ */}
-          <Link 
-            href="/admin/types"
-            className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-cyan-500/10 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-cyan-500/5 blur-2xl transition-all group-hover:bg-cyan-500/20" />
-            <div className="relative">
-              <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
-                Типы продуктов
-              </h2>
-              <div className="mt-2 h-1 w-12 rounded-full bg-cyan-500 transition-all group-hover:w-20" />
-              <p className="mt-4 text-[11px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-                Настройка форматов и наличие материалов
-              </p>
-            </div>
-          </Link>
-
-          {/* Блок 4: ПОЛЬЗОВАТЕЛИ - ФИОЛЕТОВЫЙ */}
-          <Link 
-            href="/admin/users"
-            className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-violet-500/10 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-violet-500/5 blur-2xl transition-all group-hover:bg-violet-500/20" />
-            <div className="relative">
-              <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
-                Права доступа
-              </h2>
-              <div className="mt-2 h-1 w-12 rounded-full bg-violet-500 transition-all group-hover:w-20" />
-              <p className="mt-4 text-[11px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-                Список пользователей и управление ролями
-              </p>
-            </div>
-          </Link>
 
         </div>
       </div>
