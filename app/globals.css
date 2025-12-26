@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+}
+
+:root {
+  --background: #ffffff;
+  --foreground: #1e1b4b;
+  --lavender-primary: #a78bfa;
+  --lavender-soft: #f3f0ff;
+  --lavender-dark: #7c3aed;
+  --border-slate: #f1f5f9;
+}
+
+html,
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: none !important;
+  overflow-x: hidden;
+  background-color: #f8f9fc; /* Чуть более «айтишный» фон для админки */
+  color: var(--foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+main {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+@layer utilities {
+  /* Эффект стеклянного острова для шапки */
+  .floating-island {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 
+      0 4px 12px rgba(0, 0, 0, 0.02),
+      0 20px 40px rgba(30, 27, 75, 0.05);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Стеклянная панель для карточек в админке */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 32px -4px rgba(30, 27, 75, 0.03);
+  }
+
+  /* Кастомный инпут (стиль Apple/SaaS) */
+  .glass-input {
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(8px);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+  }
+  .glass-input:focus {
+    background: #ffffff;
+    border-color: var(--lavender-primary);
+    box-shadow: 0 0 20px rgba(167, 139, 250, 0.1);
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .nav-pill-active {
+    background: #1e1b4b;
+    color: #ffffff;
+    box-shadow: 0 8px 16px rgba(30, 27, 75, 0.15);
+  }
+}
+
+/* Анимации для плавного появления блоков формы */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Стилизация скроллбара для текстовых областей */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: rgba(30, 27, 75, 0.05);
+  border-radius: 10px;
+}
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(30, 27, 75, 0.1);
+}

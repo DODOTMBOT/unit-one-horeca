@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. КАТЕГОРИИ
+model Category {
+  id         String    @id @default(uuid())
+  name       String    @unique
+  badgeColor String?   @default("indigo") // ТЕПЕРЬ ЦВЕТ БУДЕТ ТУТ
+  products   Product[]
+}
+
+// 2. ТИПЫ ПРОДУКТОВ
+model ProductType {
+  id           String    @id @default(uuid())
+  name         String    @unique
+  hasMaterials Boolean   @default(false)
+  products     Product[]
+}
+
+// 3. ТЕГИ
+model Tag {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  products Product[]
+}
+
+// 4. ПРОДУКТ
+model Product {
+  id               String       @id @default(uuid())
+  title            String
+  shortDescription String?
+  description      String       @db.Text
+  price            Int
+  
+  // ФУНКЦИЯ СКРЫТЬ
+  published        Boolean      @default(true)
+
+  // Массив требований (задается в админке)
+  requirements     Json?        @default("[]")
+
+  typeId           String?
+  productType      ProductType? @relation(fields: [typeId], references: [id])
+  tags             Tag[]
+  materials        Material[]
+  cartItems        CartItem[]
+  orderItems       OrderItem[]
+
+  badgeText        String?
+  badgeColor       String?      @default("neutral")
+  bgColor          String?      @default("#F3F4F6")
+  imageUrl         String?      @db.Text
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  categoryId       String?
+  category         Category?    @relation(fields: [categoryId], references: [id])
+}
+
+// 5. МАТЕРИАЛЫ / ФАЙЛЫ
+model Material {
+  id        String   @id @default(uuid())
+  name      String
+  url       String
+  size      Int?
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+// 6. ЗАКАЗЫ
+model Order {
+  id          String      @id @default(uuid())
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  status      String      @default("PENDING")
+  isPaid      Boolean     @default(false)
+  amount      Int         
+  
+  userEmail   String?
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  
+  items       OrderItem[]
+}
+
+// 7. ЭЛЕМЕНТЫ ЗАКАЗА
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id])
+  
+  priceAtPurchase Int    
+  answers         Json?  
+}
+
+// 8. КОРЗИНА
+model Cart {
+  id        String     @id @default(uuid())
+  userId    String     @unique
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// 9. ЭЛЕМЕНТ КОРЗИНЫ (Оптимизировано для удаления товаров)
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  // Добавлено onDelete: Cascade, чтобы товар можно было удалить, если он в корзине
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  answers   Json?    
+
+  createdAt DateTime @default(now())
+  @@unique([cartId, productId])
+}
+
+// --- СИСТЕМНЫЕ МОДЕЛИ ---
+
+model User {
+  id                String    @id @default(cuid())
+  name              String?
+  email             String?   @unique
+  role              String    @default("USER") 
+  
+  emailVerified     DateTime?
+  image             String?
+  
+  phone             String?
+  restaurantName    String?
+  restaurantAddress String?
+  restaurantFormat  String?
+  birthDate         String?
+  socialLink        String?
+  
+  accounts          Account[]
+  sessions          Session[]
+  orders            Order[]
+  cart              Cart?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  @@unique([identifier, token])
+}
+
+model Banner {
+  id        String   @id @default(uuid())
+  slot      String   @unique
+  title     String?
+  imageUrl  String   @db.Text
+  link      String?  @default("/")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Модель для управления навигацией
+model MenuItem {
+  id        String     @id @default(uuid())
+  title     String     // Название кнопки в меню
+  href      String?    // Куда ведет (может быть пустым для родительских разделов)
+  order     Int        @default(0)    // Порядок (0, 1, 2...)
+  isAdmin   Boolean    @default(false)  // Видеть может только админ
+  isVisible Boolean    @default(true)   // Активен ли пункт
+  
+  // Поля для вложенности (аккордеона)
+  parentId  String?
+  parent    MenuItem?  @relation("SubMenuItems", fields: [parentId], references: [id], onDelete: Cascade)
+  children  MenuItem[] @relation("SubMenuItems")
+
+  createdAt DateTime   @default(now())
+}
