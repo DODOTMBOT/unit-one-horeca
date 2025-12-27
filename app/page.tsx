@@ -5,170 +5,119 @@ import Image from "next/image";
 
 export const dynamic = 'force-dynamic';
 
-const badgePalette: Record<string, string> = {
-  neutral: "bg-slate-100 text-slate-600",
-  black: "bg-black text-white",
-  red: "bg-red-500 text-white",
-  green: "bg-emerald-500 text-white",
-  indigo: "bg-indigo-500 text-white",
-  orange: "bg-orange-500 text-white",
+// Запасные иллюстрации
+const FallbackIllustration = ({ id }: { id: string }) => {
+  if (id === 'marketplace') return (
+    <svg viewBox="0 0 100 100" className="w-20 h-20 fill-current text-indigo-600">
+      <path d="M20 35 L80 35 L85 85 L15 85 Z" fillOpacity="0.1" />
+      <path d="M35 35 Q50 10 65 35" fill="none" stroke="currentColor" strokeWidth="4" />
+      <rect x="20" y="35" width="60" height="50" rx="4" fill="none" stroke="currentColor" strokeWidth="4" />
+    </svg>
+  );
+  if (id === 'service') return (
+    <svg viewBox="0 0 100 100" className="w-20 h-20 fill-current text-orange-600">
+      <circle cx="50" cy="50" r="30" fillOpacity="0.1" />
+      <path d="M50 20 L50 30 M50 70 L50 80 M20 50 L30 50 M70 50 L80 50" stroke="currentColor" strokeWidth="4" />
+      <path d="M30 30 L37 37 M63 63 L70 70 M30 70 L37 63 M63 37 L70 30" stroke="currentColor" strokeWidth="4" />
+      <circle cx="50" cy="50" r="12" fill="none" stroke="currentColor" strokeWidth="4" />
+    </svg>
+  );
+  return (
+    <svg viewBox="0 0 100 100" className="w-20 h-20 fill-current text-slate-600">
+      <rect x="20" y="20" width="60" height="60" rx="8" fillOpacity="0.1" />
+      <path d="M35 65 L35 45 M50 65 L50 30 M65 65 L65 50" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+      <rect x="20" y="20" width="60" height="60" rx="8" fill="none" stroke="currentColor" strokeWidth="4" />
+    </svg>
+  );
 };
 
-export default async function Home({ searchParams }: { searchParams: Promise<any> }) {
-  const params = await searchParams;
-
-  const products = await prisma.product.findMany({
-    where: {
-      published: true,
-      ...(params.categoryId ? { categoryId: params.categoryId } : {}),
-      ...(params.minPrice || params.maxPrice ? {
-        price: {
-          ...(params.minPrice ? { gte: Number(params.minPrice) } : {}),
-          ...(params.maxPrice ? { lte: Number(params.maxPrice) } : {}),
-        }
-      } : {})
-    },
-    include: { category: true },
-    orderBy: { createdAt: 'desc' },
+export default async function Home() {
+  const directions = await prisma.direction.findMany({
+    where: { isVisible: true },
+    orderBy: { order: 'asc' }
   });
 
   return (
-    <div className="bg-white min-h-full flex flex-col">
-      <div className="max-w-[1440px] mx-auto px-6 lg:px-12 flex-1 pb-32">
-        <div className="pt-8">
-          <ProfileAlert />
+    <div className="bg-white min-h-screen flex flex-col font-sans overflow-hidden">
+      <div className="flex-1 flex flex-col items-center px-6 lg:px-12 pt-12 md:pt-16">
+        
+        <div className="w-full max-w-4xl text-center mb-12">
+          <div className="mb-6 inline-block text-left">
+            <ProfileAlert />
+          </div>
+
+          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-3 block">
+            Unit One Platform
+          </span>
+          
+          <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#1e1b4b] mb-4">
+            Экосистема бизнеса
+          </h2>
+          
+          <div className="h-1 w-16 bg-indigo-500 rounded-full mx-auto" />
         </div>
 
-        <div className="mt-20 mb-20 flex items-end justify-between">
-          <div>
-            <span className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-4 block">
-              Marketplace
-            </span>
-            <h2 className="text-7xl font-black uppercase tracking-tighter text-[#1e1b4b]">
-              Решения
-            </h2>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <span className="text-[13px] font-black text-[#1e1b4b] uppercase tracking-widest">
-              {products.length} позиции
-            </span>
-            <div className="h-1.5 w-24 bg-indigo-500 rounded-full" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-10 gap-y-24">
-          {products.map((product: any) => {
-            return (
+        <div className="flex flex-wrap justify-center gap-12 lg:gap-20">
+          {directions.map((item: any) => (
+            <Link 
+              key={item.id} 
+              href={item.href || '#'}
+              className="group relative flex flex-col items-center gap-6 transition-all duration-500"
+            >
               <div 
-                key={product.id} 
-                className="group relative flex flex-col h-full text-left"
+                className={`
+                  w-40 h-40 md:w-56 md:h-56 
+                  rounded-[50px] md:rounded-[70px] 
+                  border border-slate-100
+                  flex items-center justify-center 
+                  grayscale group-hover:grayscale-0 
+                  group-hover:bg-white group-hover:border-transparent
+                  group-hover:shadow-[0_30px_60px_-15px] 
+                  transition-all duration-500
+                `}
+                style={{ 
+                  backgroundColor: item.bgColor || '#F8FAFC',
+                  // Исправлено: удален null и некорректные типы для boxShadow
+                  boxShadow: item.activeColor ? 'inherit' : undefined 
+                }}
               >
-                {/* НЕВИДИМАЯ ССЫЛКА ПОВЕРХ ВСЕЙ КАРТОЧКИ */}
-                <Link 
-                  href={`/checkout/${product.id}`} 
-                  className="absolute inset-0 z-20 shadow-none outline-none"
-                  aria-label={product.title}
-                />
-
-                <div 
-                  className="relative aspect-[4/5] w-full overflow-hidden rounded-[60px] mb-8 transition-all duration-700 group-hover:shadow-[0_40px_80px_-20px_rgba(30,27,75,0.15)] group-hover:-translate-y-2"
-                  style={{ backgroundColor: product.bgColor || '#F8FAFC' }}
-                >
-                  {product.badgeText && (
-                    <div className="absolute top-8 left-8 z-10 px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm bg-white/20 text-white backdrop-blur-md border border-white/20">
-                      {product.badgeText}
-                    </div>
-                  )}
-
-                  {product.imageUrl && (
-                    <div className="relative w-full h-full p-10 transition-transform duration-700 group-hover:scale-105">
+                <div className="relative w-full h-full flex items-center justify-center transition-transform duration-700 group-hover:scale-110">
+                  {item.imageUrl ? (
+                    <div className="relative w-3/4 h-3/4">
                       <Image 
-                        src={product.imageUrl} 
-                        alt={product.title} 
+                        src={item.imageUrl} 
+                        alt={item.title} 
                         fill 
-                        className="object-contain p-6" 
+                        className="object-contain"
+                        unoptimized
                       />
                     </div>
+                  ) : (
+                    <FallbackIllustration id={item.id} />
                   )}
-                  
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                </div>
-                
-                <div className="flex flex-col flex-1 px-4">
-                  <div className="flex items-center gap-3 mb-5">
-                    <span className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest shadow-sm ${badgePalette[product.category?.badgeColor] || badgePalette.indigo}`}>
-                      {product.category?.name || 'Solution'}
-                    </span>
-                    <div className="h-[1px] flex-1 bg-slate-100" />
-                  </div>
-
-                  <h3 className="text-[22px] font-black text-[#1e1b4b] leading-[1.1] mb-4 group-hover:text-indigo-600 transition-colors line-clamp-2 uppercase tracking-tight">
-                    {product.title}
-                  </h3>
-                  
-                  <p className="text-[14px] text-slate-400 leading-relaxed mb-4 line-clamp-5 font-bold uppercase tracking-wide opacity-70">
-                    {product.shortDescription || "Детальное описание продукта готовится"}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-auto pt-8 border-t border-slate-50">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Стоимость</span>
-                        <span className="text-[28px] font-black text-[#1e1b4b] tracking-tighter leading-none">
-                          {product.price.toLocaleString('ru-RU')} ₽
-                        </span>
-                      </div>
-                      
-                      <div className="relative z-10 w-16 h-16 rounded-[24px] bg-[#1e1b4b] flex items-center justify-center text-white shadow-xl shadow-indigo-900/10 transition-all duration-500 transform group-hover:rotate-[-45deg] group-hover:bg-indigo-600 group-hover:rounded-[30px]">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-                      </div>
-                  </div>
                 </div>
               </div>
-            );
-          })}
+
+              <div className="text-center transition-all duration-500 opacity-40 group-hover:opacity-100 group-hover:translate-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                  {item.title}
+                </p>
+                <p className="text-lg font-bold text-[#1e1b4b]">
+                  {item.subtitle}
+                </p>
+              </div>
+            </Link>
+          ))}
         </div>
       </div>
 
-      <footer className="w-full bg-slate-50 border-t border-slate-200 py-16">
-        <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
-            <div>
-              <h3 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-6">
-                Юридическая информация
-              </h3>
-              <div className="space-y-2 text-[13px] font-bold uppercase tracking-widest text-[#1e1b4b]">
-                <p>ИП Арутюнов Эмиль Вагифович</p>
-                <p>ИНН: 502806496938</p>
-                <p>ОГРНИП: 323508100548341</p>
-              </div>
-            </div>
-            <div className="md:text-right">
-              <h3 className="text-[11px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-6">
-                Контакты
-              </h3>
-              <div className="space-y-2 text-[13px] font-bold uppercase tracking-widest text-[#1e1b4b]">
-                <p>Email: ar.em.v@yandex.ru</p>
-                <p>Тел: +7 (925) 530-73-30</p>
-                <div className="pt-4 flex md:justify-end gap-6 opacity-40">
-                   <span className="text-[10px]">VISA</span>
-                   <span className="text-[10px]">MASTERCARD</span>
-                   <span className="text-[10px]">МИР</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-16 pt-8 border-t border-slate-200 flex flex-col md:flex-row justify-between gap-6">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              © 2025 Все права защищены
-            </p>
-            <div className="flex gap-8">
-              <Link href="/policy" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-indigo-500 transition-colors">
-                Политика конфиденциальности
-              </Link>
-              <Link href="/terms" className="text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-indigo-500 transition-colors">
-                Публичная оферта
-              </Link>
-            </div>
+      <footer className="w-full py-12 opacity-30 hover:opacity-100 transition-opacity mt-auto">
+        <div className="max-w-[1440px] mx-auto px-12 flex flex-col md:flex-row justify-center items-center gap-8 text-[9px] font-bold uppercase tracking-widest text-slate-400">
+          <p>ИП Арутюнов Эмиль Вагифович</p>
+          <p>ИНН: 502806496938</p>
+          <div className="flex gap-6">
+            <Link href="/policy">Политика</Link>
+            <Link href="/terms">Оферта</Link>
           </div>
         </div>
       </footer>

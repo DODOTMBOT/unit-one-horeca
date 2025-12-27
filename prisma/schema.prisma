@@ -9,10 +9,10 @@ datasource db {
 
 // 1. КАТЕГОРИИ
 model Category {
-  id         String    @id @default(uuid())
-  name       String    @unique
-  badgeColor String?   @default("indigo") // ТЕПЕРЬ ЦВЕТ БУДЕТ ТУТ
-  products   Product[]
+  id          String    @id @default(uuid())
+  name        String    @unique
+  badgeColor  String?   @default("indigo")
+  products    Product[]
 }
 
 // 2. ТИПЫ ПРОДУКТОВ
@@ -38,10 +38,7 @@ model Product {
   description      String       @db.Text
   price            Int
   
-  // ФУНКЦИЯ СКРЫТЬ
   published        Boolean      @default(true)
-
-  // Массив требований (задается в админке)
   requirements     Json?        @default("[]")
 
   typeId           String?
@@ -75,10 +72,10 @@ model Material {
 
 // 6. ЗАКАЗЫ
 enum OrderStatus {
-  NEW          // Новый заказ (горит красный бейдж)
-  PROCESSING   // В работе (бейдж пропадает из админки, но может быть в хедере)
-  COMPLETED    // Завершен
-  CANCELLED    // Отменен
+  NEW
+  PROCESSING
+  COMPLETED
+  CANCELLED
 }
 
 model Order {
@@ -105,8 +102,8 @@ model OrderItem {
   productId       String
   product         Product  @relation(fields: [productId], references: [id])
   
-  priceAtPurchase Int    
-  answers         Json?  
+  priceAtPurchase Int     
+  answers         Json?   
 }
 
 // 8. КОРЗИНА
@@ -119,13 +116,12 @@ model Cart {
   updatedAt DateTime   @updatedAt
 }
 
-// 9. ЭЛЕМЕНТ КОРЗИНЫ (Оптимизировано для удаления товаров)
+// 9. ЭЛЕМЕНТ КОРЗИНЫ
 model CartItem {
   id        String   @id @default(uuid())
   cartId    String
   cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
-  // Добавлено onDelete: Cascade, чтобы товар можно было удалить, если он в корзине
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   
   answers   Json?    
@@ -172,6 +168,7 @@ model Account {
   access_token      String? @db.Text
   expires_at        Int?
   token_type        String?
+  refresh_token_expires_in Int?
   scope             String?
   id_token          String? @db.Text
   session_state     String?
@@ -204,19 +201,39 @@ model Banner {
   updatedAt DateTime @updatedAt
 }
 
-// Модель для управления навигацией
 model MenuItem {
   id        String     @id @default(uuid())
-  title     String     // Название кнопки в меню
-  href      String?    // Куда ведет (может быть пустым для родительских разделов)
-  order     Int        @default(0)    // Порядок (0, 1, 2...)
-  isAdmin   Boolean    @default(false)  // Видеть может только админ
-  isVisible Boolean    @default(true)   // Активен ли пункт
+  title     String     
+  href      String?    
+  order     Int        @default(0)    
+  isAdmin   Boolean    @default(false)  
+  isVisible Boolean    @default(true)   
   
-  // Поля для вложенности (аккордеона)
   parentId  String?
   parent    MenuItem?  @relation("SubMenuItems", fields: [parentId], references: [id], onDelete: Cascade)
   children  MenuItem[] @relation("SubMenuItems")
 
   createdAt DateTime   @default(now())
+}
+
+// 10. НАПРАВЛЕНИЯ НА ГЛАВНОЙ (ЭКОСИСТЕМА)
+model Direction {
+  id          String   @id @default(uuid())
+  title       String   
+  subtitle    String?  
+  description String?  @db.Text
+  href        String   
+  
+  imageUrl    String?  @db.Text
+  iconName    String?  
+  
+  badge       String?  @default("Open") 
+  activeColor String?  @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
+  bgColor     String?  @default("#F8FAFC")
+  
+  order       Int      @default(0)
+  
+  isVisible   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

@@ -3,7 +3,7 @@
 import { useSession } from "next-auth/react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Globe, LayoutDashboard, Loader2 } from "lucide-react";
+import { Globe, LayoutDashboard, Loader2, Zap } from "lucide-react";
 import useSWR from "swr";
 
 // Функция для получения данных
@@ -12,10 +12,9 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 export default function AdminDashboard() {
   const { data: session, status } = useSession();
 
-  // Получаем количество заказов (только статус NEW для этой плитки)
-  // Мы создадим отдельный роут или используем параметры, но пока берем общий счетчик
+  // Получаем количество заказов
   const { data: countData } = useSWR("/api/admin/orders/count", fetcher, {
-    refreshInterval: 30000, // Обновлять каждые 30 секунд
+    refreshInterval: 30000, 
   });
 
   const newOrdersCount = countData?.count || 0;
@@ -62,6 +61,28 @@ export default function AdminDashboard() {
         {/* СЕТКА С ЦВЕТОВЫМИ АКЦЕНТАМИ */}
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           
+          {/* ЭКОСИСТЕМА - ИНДИГО (НОВАЯ ПЛИТКА) */}
+          <Link 
+            href="/admin/directions"
+            className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-indigo-500/10 hover:-translate-y-2 overflow-hidden"
+          >
+            <div className="absolute left-8 top-8">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                <Zap size={20} />
+              </div>
+            </div>
+            <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-indigo-500/5 blur-2xl transition-all group-hover:bg-indigo-500/20" />
+            <div className="relative">
+              <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
+                Экосистема
+              </h2>
+              <div className="mt-2 h-1 w-12 rounded-full bg-indigo-600 transition-all group-hover:w-20" />
+              <p className="mt-4 text-[11px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
+                Направления главной страницы и логотипы
+              </p>
+            </div>
+          </Link>
+
           {/* ТОВАРЫ - СИНИЙ */}
           <Link 
             href="/admin/products"
@@ -118,7 +139,6 @@ export default function AdminDashboard() {
             href="/admin/orders"
             className="group relative flex min-h-[200px] flex-col justify-end rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:shadow-emerald-500/10 hover:-translate-y-2 overflow-hidden"
           >
-            {/* Анимированный бейдж количества новых заказов */}
             {newOrdersCount > 0 && (
               <div className="absolute right-8 top-8 z-10 flex h-10 w-10 animate-bounce items-center justify-center rounded-full bg-red-500 font-black text-white shadow-xl shadow-red-500/40">
                 {newOrdersCount > 9 ? "9+" : newOrdersCount}
