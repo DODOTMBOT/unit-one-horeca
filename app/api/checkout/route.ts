@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { OrderStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    // Добавляем answers на случай, если ты захочешь передавать их напрямую в API
     const { productId, email, answers = {} } = body;
 
     if (!productId) {
       return NextResponse.json({ error: "Не указан ID товара" }, { status: 400 });
     }
 
-    // 1. Ищем товар
     const product = await prisma.product.findUnique({
       where: { id: productId }
     });
@@ -20,7 +19,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
     }
 
-    // 2. Ищем пользователя по Email
     let connectedUserId = null;
     if (email) {
       const existingUser = await prisma.user.findUnique({
@@ -31,46 +29,44 @@ export async function POST(req: Request) {
       }
     }
 
-    // --- ЛОГИКА ТЕСТА ---
     const shouldFail = email?.includes("error"); 
-    const initialStatus = "PENDING";
+    // Исправлено: используем NEW вместо PENDING
+    const initialStatus = OrderStatus.NEW;
 
-    // 3. Создаем заказ по НОВОЙ структуре
-    // Поля productId больше нет в Order, используем связь items (OrderItem)
     const order = await prisma.order.create({
       data: {
         amount: product.price,
         userEmail: email || "guest@noreply.com",
         userId: connectedUserId,
         status: initialStatus,
-        isPaid: false, // Изначально не оплачен
+        isPaid: false, 
         items: {
           create: [
             {
               productId: product.id,
               priceAtPurchase: product.price,
-              answers: answers, // Сохраняем ответы пользователя
+              answers: answers, 
             }
           ]
         }
       }
     });
 
-    // Имитация задержки банка
     await new Promise(r => setTimeout(r, 1500));
 
     if (shouldFail) {
       await prisma.order.update({
         where: { id: order.id },
-        data: { status: "FAILED" }
+        // Исправлено: используем CANCELLED вместо FAILED
+        data: { status: OrderStatus.CANCELLED }
       });
       return NextResponse.json({ error: "Оплата отклонена банком (Тест)", status: "failed" }, { status: 400 });
     } else {
-      // Обновляем статус и ставим флаг оплаты
       await prisma.order.update({
         where: { id: order.id },
         data: { 
-          status: "PAID",
+          // Исправлено: используем COMPLETED вместо PAID
+          status: OrderStatus.COMPLETED,
           isPaid: true 
         }
       });

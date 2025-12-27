@@ -10,16 +10,18 @@ export async function GET() {
     const users: UserItem[] = await prisma.user.findMany();
 
     const totalUsers = users.length;
-    // Считаем админов (тех, чья почта в таблице AllowedAdmin)
-    const adminsCount = await prisma.allowedAdmin.count();
     
-    // Считаем тех, у кого заполнены контакты
+    // ИСПРАВЛЕНИЕ: Так как в Prisma нет модели allowedAdmin, 
+    // пока считаем админов по полю role в таблице User.
+    // Если таблицы allowedAdmin действительно не существует, tsc будет ругаться.
+    const adminsCount = users.filter(u => u.role === 'ADMIN').length;
+    
     const withSocials = users.filter(u => u.socialLink).length;
     const withPhone = users.filter(u => u.phone).length;
 
     return NextResponse.json({
       totalUsers,
-      totalAdmins: adminsCount + 1, // +1 это супер-админ из конфига
+      totalAdmins: adminsCount, 
       withSocials,
       withPhone,
       chartData: [
@@ -28,6 +30,7 @@ export async function GET() {
       ]
     });
   } catch (error) {
+    console.error("Database error:", error);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 }

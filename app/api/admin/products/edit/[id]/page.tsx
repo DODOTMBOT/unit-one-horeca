@@ -71,8 +71,6 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
             setMaterials(product.materials);
           }
 
-          setValue("typeId", product.typeId || "");
-
           reset({
             title: product.title || "",
             shortDescription: product.shortDescription || "",
@@ -94,7 +92,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
       }
     }
     initData();
-  }, [productId, reset, setValue]);
+  }, [productId, reset]);
 
   const currentType = types.find(t => t.id === watchedValues.typeId);
   const shouldShowMaterials = currentType?.hasMaterials || materials.length > 0;
@@ -163,14 +161,22 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-6">
             
-            {/* ТЕСТОВАЯ ПРАВКА: Заголовок стал КРАСНЫМ, слово ТЕГИ удалено */}
             <Card title="Классификация (ТЕСТ ЦВЕТА)" className="border-red-500 border-2">
               <div className="grid gap-6 md:grid-cols-2 mb-4">
-                <Select label="Категория" options={categories.map(c => ({ value: c.id, label: c.name }))} {...register("categoryId")} />
-                <Select label="Тип продукта" options={types.map(t => ({ value: t.id, label: t.name }))} {...register("typeId")} />
+                {/* ИСПРАВЛЕНИЕ: Используем прямое управление вместо register для Select */}
+                <Select 
+                  label="Категория" 
+                  options={categories.map(c => ({ value: c.id, label: c.name }))} 
+                  value={watchedValues.categoryId}
+                  onChange={(val) => setValue("categoryId", val)}
+                />
+                <Select 
+                  label="Тип продукта" 
+                  options={types.map(t => ({ value: t.id, label: t.name }))} 
+                  value={watchedValues.typeId}
+                  onChange={(val) => setValue("typeId", val)}
+                />
               </div>
-
-              {/* Здесь раньше было слово ТЕГИ, теперь его нет */}
 
               {shouldShowMaterials && (
                 <div className="mt-8 pt-8 border-t border-slate-100">
@@ -222,7 +228,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
                   }
                 }} />
                 <label htmlFor="mainImg" className="block aspect-square w-full rounded-[24px] border-2 border-dashed border-slate-200 bg-slate-50 relative overflow-hidden cursor-pointer">
-                  {watchedValues.imageUrl ? <img src={watchedValues.imageUrl} className="h-full w-full object-contain p-4" /> : <div className="flex h-full items-center justify-center text-slate-300 font-black uppercase text-[10px]">Загрузить фото</div>}
+                  {watchedValues.imageUrl ? <img src={watchedValues.imageUrl} alt="" className="h-full w-full object-contain p-4" /> : <div className="flex h-full items-center justify-center text-slate-300 font-black uppercase text-[10px]">Загрузить фото</div>}
                 </label>
             </Card>
 
