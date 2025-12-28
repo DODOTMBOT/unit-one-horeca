@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// --- ПЕРЕЧИСЛЕНИЯ (ENUMS) ---
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  NEW
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
 // 1. КАТЕГОРИИ
 model Category {
   id          String    @id @default(uuid())
@@ -71,13 +85,6 @@ model Material {
 }
 
 // 6. ЗАКАЗЫ
-enum OrderStatus {
-  NEW
-  PROCESSING
-  COMPLETED
-  CANCELLED
-}
-
 model Order {
   id          String      @id @default(uuid())
   createdAt   DateTime    @default(now())
@@ -102,8 +109,8 @@ model OrderItem {
   productId       String
   product         Product  @relation(fields: [productId], references: [id])
   
-  priceAtPurchase Int     
-  answers         Json?   
+  priceAtPurchase Int      
+  answers         Json?    
 }
 
 // 8. КОРЗИНА
@@ -136,7 +143,7 @@ model User {
   id                String    @id @default(cuid())
   name              String?
   email             String?   @unique
-  role              String    @default("USER") 
+  role              UserRole  @default(USER) 
   
   emailVerified     DateTime?
   image             String?
@@ -216,7 +223,6 @@ model MenuItem {
   createdAt DateTime   @default(now())
 }
 
-// 10. НАПРАВЛЕНИЯ НА ГЛАВНОЙ (ЭКОСИСТЕМА)
 model Direction {
   id          String   @id @default(uuid())
   title       String   

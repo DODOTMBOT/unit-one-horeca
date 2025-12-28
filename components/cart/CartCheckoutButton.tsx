@@ -9,10 +9,9 @@ import { ShieldCheck, Lock } from "lucide-react";
 export default function CartCheckoutButton({ totalAmount }: { totalAmount: number }) {
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false); 
-  const [mounted, setMounted] = useState(false); // Добавили стейт для защиты от гидратации
+  const [mounted, setMounted] = useState(false);
   const router = useRouter();
 
-  // Гарантируем, что компонент отрисуется только на клиенте для корректного отображения чисел
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -23,24 +22,39 @@ export default function CartCheckoutButton({ totalAmount }: { totalAmount: numbe
     setLoading(true);
     
     try {
+      // 1. Создаем заказ в базе данных через серверный экшен
       const res = await createOrderFromCart();
 
-      if (res.success) {
-        alert(`Заказ успешно оформлен! \nВ боевом режиме здесь откроется окно ЮKassa.`);
-        router.refresh();
-        router.push("/admin/orders");
+      // Проверяем успех и наличие orderId (productId удален, так как его нет в возвращаемом типе)
+      if (res.success && res.orderId) {
+        // 2. Запрашиваем реальную ссылку на оплату у нашего API
+        const response = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            orderId: res.orderId 
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.url) {
+          // 3. Перенаправляем пользователя на сайт ЮKassa
+          window.location.href = data.url;
+        } else {
+          alert(`Ошибка платежной системы: ${data.error || 'не удалось получить ссылку'}`);
+        }
       } else {
-        alert(`Ошибка: ${res.error}`);
+        alert(`Ошибка оформления: ${res.error || 'неизвестная ошибка'}`);
       }
     } catch (error) {
       console.error("PAYMENT_ERROR:", error);
-      alert("Произошла ошибка при обработке платежа");
+      alert("Произошла ошибка при соединении с сервером платежей");
     } finally {
       setLoading(false);
     }
   };
 
-  // Пока компонент не смонтирован на клиенте, рендерим заглушку или скелетон
   if (!mounted) {
     return <div className="w-full h-16 bg-white/5 animate-pulse rounded-[24px]" />;
   }
@@ -95,7 +109,6 @@ export default function CartCheckoutButton({ totalAmount }: { totalAmount: numbe
         ) : (
           <>
             <Lock size={14} className={agreed ? "text-indigo-500" : "text-white/20"} />
-            {/* Явно указываем локаль ru-RU для предотвращения ошибок гидратации */}
             <span>Оплатить {totalAmount.toLocaleString('ru-RU')} ₽</span>
           </>
         )}
