@@ -27,27 +27,31 @@ enum OrderStatus {
 // --- СИСТЕМНЫЕ МОДЕЛИ ---
 
 model User {
-  id            String    @id @default(cuid())
-  login         String?   @unique // Логин для прямой регистрации
-  password      String?   // Хэш пароля
-  name          String?   // Имя
-  surname       String?   // Фамилия
-  email         String?   @unique
-  role          UserRole  @default(USER)
+  id             String    @id @default(cuid())
+  login          String?   @unique
+  password       String?
+  name           String?
+  surname        String?
+  email          String?   @unique
+  role           UserRole  @default(USER)
   
   // Поля для Партнера (Владельца кафе)
-  partnerCode    String?   @unique // Уникальный 7-значный код (напр. AB123XY)
+  partnerCode    String?   @unique
   ownedEstablishments Establishment[] @relation("OwnerToEstablishment")
 
   // Поля для Сотрудника/Связи с Партнером
-  referredByCode String?  // Код партнера, введенный при регистрации
-  partnerId      String?  // ID партнера, к которому "прилип" сотрудник
-  parentPartner  User?    @relation("PartnerToStaff", fields: [partnerId], references: [id])
-  staffMembers   User[]   @relation("PartnerToStaff")
+  referredByCode String?
+  partnerId      String?
+  parentPartner  User?     @relation("PartnerToStaff", fields: [partnerId], references: [id])
+  staffMembers   User[]    @relation("PartnerToStaff")
 
   // СВЯЗЬ "МНОГИЕ КО МНОГИМ" С ЗАВЕДЕНИЯМИ
   establishments Establishment[] @relation("EstablishmentEmployees")
   
+  // ХАССП: Журнал здоровья
+  healthLogs     HealthLog[] @relation("EmployeeHealthEntries") // Записи о здоровье этого юзера
+  performedLogs  HealthLog[] @relation("ManagerHealthChecks")  // Проверки, которые провел этот юзер (если он Manager/Partner)
+
   // Подписки и системные данные
   subscriptionStatus  String?   @default("none") 
   subscriptionPlanId  String?
@@ -76,19 +80,55 @@ model User {
 
 model Establishment {
   id        String   @id @default(uuid())
-  name      String   // Название заведения
-  city      String   // Город
-  address   String   // Адрес
+  name      String   
+  city      String   
+  address   String   
   
   // Владелец заведения
-  ownerId   String   // ID партнера
+  ownerId   String   
   owner     User     @relation("OwnerToEstablishment", fields: [ownerId], references: [id])
   
   // СВЯЗЬ "МНОГИЕ КО МНОГИМ" С СОТРУДНИКАМИ
   employees User[]   @relation("EstablishmentEmployees")
+
+  // ХАССП: Журналы заведения
+  healthLogs HealthLog[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// --- ХАССП МОДЕЛИ ---
+
+model HealthLog {
+  id              String   @id @default(uuid())
+  date            DateTime @default(now()) // Дата записи
+
+  // Кто проверял (Manager или Partner)
+  inspectorId     String
+  inspector       User     @relation("ManagerHealthChecks", fields: [inspectorId], references: [id])
+
+  // Кого проверяли (Сотрудник)
+  employeeId      String
+  employee        User     @relation("EmployeeHealthEntries", fields: [employeeId], references: [id])
+
+  // В какой точке проводилась проверка
+  establishmentId String
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  // Данные проверки (Стандарты ХАССП)
+  hasPustules     Boolean  @default(false) // Гнойничковые заболевания (false = нет, всё ок)
+  hasInfections   Boolean  @default(false) // Признаки инфекционных заболеваний
+  isFamilyHealthy Boolean  @default(true)  // Здоровье членов семьи (true = всё ок)
+  temperature     Float?                   // Температура тела (напр. 36.6)
+  
+  comment         String?  // Дополнительный комментарий
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([establishmentId])
+  @@index([date])
 }
 
 // --- МАРКЕТПЛЕЙС И КОНТЕНТ ---
@@ -114,31 +154,31 @@ model Tag {
 }
 
 model Product {
-  id               String        @id @default(uuid())
-  title            String
-  shortDescription String?
-  description      String        @db.Text
-  price            Int
+  id                String        @id @default(uuid())
+  title             String
+  shortDescription  String?
+  description       String        @db.Text
+  price             Int
   
-  published        Boolean       @default(true)
-  requirements     Json?         @default("[]")
+  published         Boolean       @default(true)
+  requirements      Json?         @default("[]")
 
-  typeId           String?
-  productType      ProductType? @relation(fields: [typeId], references: [id])
-  tags             Tag[]
-  materials        Material[]
-  cartItems        CartItem[]
-  orderItems       OrderItem[]
+  typeId            String?
+  productType       ProductType? @relation(fields: [typeId], references: [id])
+  tags              Tag[]
+  materials         Material[]
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
 
-  badgeText        String?
-  badgeColor       String?      @default("neutral")
-  bgColor          String?      @default("#F3F4F6")
-  imageUrl         String?      @db.Text
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  badgeText         String?
+  badgeColor        String?      @default("neutral")
+  bgColor           String?      @default("#F3F4F6")
+  imageUrl          String?      @db.Text
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
-  categoryId       String?
-  category         Category?    @relation(fields: [categoryId], references: [id])
+  categoryId        String?
+  category          Category?    @relation(fields: [categoryId], references: [id])
 }
 
 model Material {
@@ -226,20 +266,20 @@ model SubscriptionPlan {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
   refresh_token_expires_in Int?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
-  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
 
@@ -294,11 +334,11 @@ model Direction {
   imageUrl     String?  @db.Text
   iconName     String?  
   
-  badge       String?  @default("Open") 
+  badge        String?  @default("Open") 
   activeColor String?  @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
-  bgColor     String?  @default("#F8FAFC")
+  bgColor      String?  @default("#F8FAFC")
   
-  order        Int      @default(0)
+  order         Int      @default(0)
   
   isVisible    Boolean  @default(true)
   createdAt     DateTime @default(now())

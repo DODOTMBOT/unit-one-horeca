@@ -8,9 +8,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-/**
- * Кастомный компонент селекта для выбора заведения
- */
 function CustomEstablishmentSelect({ 
   employee, 
   establishments, 
@@ -71,7 +68,7 @@ function CustomEstablishmentSelect({
             <button
               type="button"
               onClick={() => { 
-                onAssign(employee.id, ""); // Отправляем пустую строку для отвязки
+                onAssign(employee.id, ""); 
                 setIsOpen(false); 
               }}
               className={`w-full text-left px-4 py-2.5 text-[9px] font-black uppercase tracking-widest transition-colors flex items-center justify-between ${
@@ -157,7 +154,6 @@ export default function PartnerStaff() {
   };
 
   const assignToEstablishment = async (userId: string, establishmentId: string) => {
-    // ВАЖНО: Убрали проверку !establishmentId, чтобы можно было передавать пустую строку
     setUpdatingId(userId);
     try {
       const res = await fetch("/api/partner/staff/assign", {
@@ -167,8 +163,12 @@ export default function PartnerStaff() {
       });
       if (res.ok) {
         const selectedEst = establishments.find(e => e.id === establishmentId);
-        // Если заведение не найдено (отвязка), ставим пустой массив
-        setStaff(prev => prev.map(u => u.id === userId ? { ...u, establishments: selectedEst ? [selectedEst] : [] } : u));
+        // Корректно обновляем стейт: если establishmentId пустой, массив заведений будет пустым
+        setStaff(prev => prev.map(u => 
+          u.id === userId 
+            ? { ...u, establishments: selectedEst ? [selectedEst] : [] } 
+            : u
+        ));
       }
     } finally {
       setUpdatingId(null);
@@ -216,11 +216,9 @@ export default function PartnerStaff() {
             <div className="divide-y divide-slate-50 overflow-visible">
               {filteredStaff.map((employee, idx) => (
                 <div key={employee.id} className="flex flex-col lg:flex-row lg:items-center gap-4 px-6 py-4 hover:bg-slate-50/50 transition-colors overflow-visible">
-                  
                   <div className="hidden lg:flex w-8 justify-center text-[10px] font-bold text-slate-200">
                     {idx + 1}
                   </div>
-
                   <div className="flex-[1.5] flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${employee.role === 'MANAGER' ? 'bg-amber-50 text-amber-500' : 'bg-slate-50 text-slate-400'}`}>
                       {employee.role === 'MANAGER' ? <Star size={18} fill="currentColor" /> : <UserCircle size={18} />}
@@ -235,14 +233,12 @@ export default function PartnerStaff() {
                       </div>
                     </div>
                   </div>
-
                   <CustomEstablishmentSelect 
                     employee={employee}
                     establishments={establishments}
                     onAssign={assignToEstablishment}
                     disabled={updatingId === employee.id}
                   />
-
                   <div className="flex-1">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[8px] font-black uppercase tracking-widest ${
                       employee.role === 'MANAGER' 
@@ -253,7 +249,6 @@ export default function PartnerStaff() {
                       {employee.role === 'MANAGER' ? 'Manager' : 'Staff'}
                     </div>
                   </div>
-
                   <div className="w-full lg:w-[180px] flex justify-end">
                     <button
                       disabled={updatingId === employee.id}

@@ -5,14 +5,21 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import bcrypt from "bcrypt";
 
-// Расширяем типы NextAuth, чтобы TS не ругался на роли и коды
+// 1. Расширяем типы NextAuth, добавляя surname
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
       role: string;
+      surname?: string | null; // Добавили фамилию
       partnerCode?: string | null;
     } & DefaultSession["user"]
+  }
+
+  interface User {
+    role: string;
+    surname?: string | null; // Добавили фамилию
+    partnerCode?: string | null;
   }
 }
 
@@ -41,7 +48,6 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Введите логин и пароль");
         }
 
-        // Используем any для обхода временного лага типов Prisma
         const user = await prisma.user.findFirst({
           where: {
             OR: [
@@ -61,9 +67,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Неверный пароль");
         }
 
+        // 2. Возвращаем surname из БД при авторизации
         return {
           id: user.id,
           name: user.name,
+          surname: user.surname, // <--- Важно
           email: user.email,
           role: user.role,
           partnerCode: user.partnerCode,
@@ -75,8 +83,9 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
-        token.partnerCode = (user as any).partnerCode;
+        token.role = user.role;
+        token.surname = user.surname; // 3. Записываем в токен
+        token.partnerCode = user.partnerCode;
       }
       return token;
     },
@@ -84,6 +93,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.surname = token.surname as string | null; // 4. Пробрасываем в сессию
         session.user.partnerCode = token.partnerCode as string | null;
       }
       return session;
