@@ -10,7 +10,7 @@ export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
 
   if (!session) {
-    redirect("/api/auth/signin");
+    redirect("/auth/login");
   }
 
   const email = session.user?.email || "";
@@ -33,7 +33,11 @@ export default async function ProfilePage() {
           } 
         },
         orderBy: { createdAt: 'desc' }
-      }
+      },
+      // Подгружаем заведения
+      establishments: true, 
+      // Подгружаем партнера, к которому привязан сотрудник, чтобы вывести его имя
+      parentPartner: true,
     }
   });
 
@@ -41,11 +45,13 @@ export default async function ProfilePage() {
      redirect("/");
   }
 
+  const isPartner = user.role === "PARTNER";
+
   return (
     <div className="min-h-screen bg-[#F1F3F6] pb-20 font-sans">
       <div className="max-w-[1000px] mx-auto px-4 pt-8">
         
-        {/* ХЕДЕР: Компактный и "стеклянный" */}
+        {/* ХЕДЕР */}
         <header className="sticky top-4 z-40 mb-8 flex h-16 items-center justify-between rounded-full border border-white bg-white/80 px-6 backdrop-blur-xl shadow-sm">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:bg-white hover:text-indigo-600 transition-all border border-slate-100 shadow-sm">
@@ -57,10 +63,10 @@ export default async function ProfilePage() {
               </div>
               <div className="flex flex-col leading-none">
                 <h1 className="text-sm font-black uppercase tracking-tighter text-[#1e1b4b]">
-                  Личный кабинет
+                  {user.name} {user.surname}
                 </h1>
                 <span className="text-[10px] font-bold text-slate-400 truncate max-w-[150px] sm:max-w-none">
-                  {user.email}
+                  {isPartner ? 'Партнер (Владелец)' : 'Сотрудник'} • {user.email}
                 </span>
               </div>
             </div>
@@ -77,10 +83,9 @@ export default async function ProfilePage() {
            <ProfileDashboard user={user} orders={user.orders as any} />
         </main>
 
-        {/* ФУТЕР КАБИНЕТА: Исправлены закрывающие теги */}
         <footer className="mt-12 text-center">
             <p className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-300">
-              HoReCa Solutions • Secure Access
+              Unit One Ecosystem • {user.role} Access
             </p>
         </footer>
       </div>

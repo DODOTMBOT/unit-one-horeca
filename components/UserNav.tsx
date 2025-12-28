@@ -2,7 +2,7 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { User, ShieldCheck, ChevronRight, ShoppingBag, LogOut, Loader2 } from "lucide-react";
+import { User, ShieldCheck, ChevronRight, ShoppingBag, LogOut, LayoutDashboard } from "lucide-react";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 
@@ -12,8 +12,9 @@ export default function UserNav() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
 
-  // Проверка прав администратора
+  // Проверки ролей
   const isAdmin = session?.user?.role === "ADMIN" || session?.user?.email === 'ar.em.v@yandex.ru';
+  const isPartner = session?.user?.role === "PARTNER";
 
   // Получаем количество заказов (только для админа)
   const { data: countData } = useSWR(isAdmin ? "/api/admin/orders/count" : null, fetcher, {
@@ -44,7 +45,7 @@ export default function UserNav() {
   return (
     <div className="flex items-center gap-2">
       
-      {/* Иконка ЗАКАЗЫ: видна только админу и если есть активные заказы */}
+      {/* Иконка ЗАКАЗЫ: видна только админу */}
       {isAdmin && ordersCount > 0 && (
         <Link
           href="/admin/orders/list"
@@ -54,6 +55,21 @@ export default function UserNav() {
           <ShoppingBag size={18} strokeWidth={2.5} className={ordersCount > 0 ? "animate-pulse" : ""} />
           <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[9px] font-black text-white shadow-sm transition-transform group-hover:scale-110">
             {ordersCount > 9 ? '9+' : ordersCount}
+          </span>
+        </Link>
+      )}
+
+      {/* КНОПКА ПАРТНЕРА: Теперь в полном виде с текстом */}
+      {isPartner && (
+        <Link 
+          href="/partner" 
+          className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-indigo-50/50 border border-indigo-100 rounded-full shadow-sm hover:shadow-md hover:bg-indigo-600 hover:text-white transition-all duration-300"
+        >
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-indigo-600 group-hover:bg-white group-hover:scale-110 transition-all">
+            <LayoutDashboard size={14} strokeWidth={2.5} />
+          </div>
+          <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-indigo-600 group-hover:text-white">
+            Панель партнёра
           </span>
         </Link>
       )}
@@ -69,7 +85,7 @@ export default function UserNav() {
         </Link>
       )}
 
-      {/* Мой профиль: остается в полном виде для акцента на пользователе */}
+      {/* Мой профиль */}
       <Link 
         href="/profile" 
         className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-white border border-slate-100 rounded-full shadow-sm hover:shadow-md hover:border-indigo-100 transition-all duration-300"
@@ -83,7 +99,7 @@ export default function UserNav() {
         <ChevronRight size={10} className="text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
       </Link>
 
-      {/* Кнопка ВЫХОД: компактная */}
+      {/* Кнопка ВЫХОД */}
       <button 
         onClick={() => signOut()}
         title="Выйти"

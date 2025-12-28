@@ -10,8 +10,11 @@ datasource db {
 // --- ПЕРЕЧИСЛЕНИЯ (ENUMS) ---
 
 enum UserRole {
-  USER
-  ADMIN
+  OWNER    // Главный администратор всей платформы (Вы)
+  ADMIN    // Оставляем временно, чтобы база не ругалась на старые данные
+  PARTNER  // Владелец кафе (бизнеса)
+  MANAGER  // Управляющий (назначается партнером)
+  USER     // Линейный сотрудник
 }
 
 enum OrderStatus {
@@ -21,7 +24,75 @@ enum OrderStatus {
   CANCELLED
 }
 
-// 1. КАТЕГОРИИ
+// --- СИСТЕМНЫЕ МОДЕЛИ ---
+
+model User {
+  id            String    @id @default(cuid())
+  login         String?   @unique // Логин для прямой регистрации
+  password      String?   // Хэш пароля
+  name          String?   // Имя
+  surname       String?   // Фамилия
+  email         String?   @unique
+  role          UserRole  @default(USER)
+  
+  // Поля для Партнера (Владельца кафе)
+  partnerCode    String?   @unique // Уникальный 7-значный код (напр. AB123XY)
+  ownedEstablishments Establishment[] @relation("OwnerToEstablishment")
+
+  // Поля для Сотрудника/Связи с Партнером
+  referredByCode String?  // Код партнера, введенный при регистрации
+  partnerId      String?  // ID партнера, к которому "прилип" сотрудник
+  parentPartner  User?    @relation("PartnerToStaff", fields: [partnerId], references: [id])
+  staffMembers   User[]   @relation("PartnerToStaff")
+
+  // СВЯЗЬ "МНОГИЕ КО МНОГИМ" С ЗАВЕДЕНИЯМИ
+  establishments Establishment[] @relation("EstablishmentEmployees")
+  
+  // Подписки и системные данные
+  subscriptionStatus  String?   @default("none") 
+  subscriptionPlanId  String?
+  subscriptionPlan    SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
+  subscriptionExpires DateTime? 
+  paymentMethodId     String?   
+  
+  emailVerified     DateTime?
+  image             String?
+  phone             String?
+  restaurantName    String?
+  restaurantAddress String?
+  restaurantFormat  String?
+  birthDate         String?
+  socialLink        String?
+  
+  accounts          Account[]
+  sessions          Session[]
+  orders            Order[]
+  cart              Cart?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([role])
+}
+
+model Establishment {
+  id        String   @id @default(uuid())
+  name      String   // Название заведения
+  city      String   // Город
+  address   String   // Адрес
+  
+  // Владелец заведения
+  ownerId   String   // ID партнера
+  owner     User     @relation("OwnerToEstablishment", fields: [ownerId], references: [id])
+  
+  // СВЯЗЬ "МНОГИЕ КО МНОГИМ" С СОТРУДНИКАМИ
+  employees User[]   @relation("EstablishmentEmployees")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- МАРКЕТПЛЕЙС И КОНТЕНТ ---
+
 model Category {
   id          String    @id @default(uuid())
   name        String    @unique
@@ -29,7 +100,6 @@ model Category {
   products    Product[]
 }
 
-// 2. ТИПЫ ПРОДУКТОВ
 model ProductType {
   id           String    @id @default(uuid())
   name         String    @unique
@@ -37,23 +107,21 @@ model ProductType {
   products     Product[]
 }
 
-// 3. ТЕГИ
 model Tag {
   id       String    @id @default(uuid())
   name     String    @unique
   products Product[]
 }
 
-// 4. ПРОДУКТ
 model Product {
-  id               String       @id @default(uuid())
+  id               String        @id @default(uuid())
   title            String
   shortDescription String?
-  description      String       @db.Text
+  description      String        @db.Text
   price            Int
   
-  published        Boolean      @default(true)
-  requirements     Json?        @default("[]")
+  published        Boolean       @default(true)
+  requirements     Json?         @default("[]")
 
   typeId           String?
   productType      ProductType? @relation(fields: [typeId], references: [id])
@@ -73,7 +141,6 @@ model Product {
   category         Category?    @relation(fields: [categoryId], references: [id])
 }
 
-// 5. МАТЕРИАЛЫ / ФАЙЛЫ
 model Material {
   id        String   @id @default(uuid())
   name      String
@@ -84,7 +151,6 @@ model Material {
   createdAt DateTime @default(now())
 }
 
-// 6. ЗАКАЗЫ
 model Order {
   id          String      @id @default(uuid())
   createdAt   DateTime    @default(now())
@@ -100,7 +166,6 @@ model Order {
   items       OrderItem[]
 }
 
-// 7. ЭЛЕМЕНТЫ ЗАКАЗА
 model OrderItem {
   id              String   @id @default(uuid())
   orderId         String
@@ -113,7 +178,6 @@ model OrderItem {
   answers         Json?    
 }
 
-// 8. КОРЗИНА
 model Cart {
   id        String     @id @default(uuid())
   userId    String     @unique
@@ -123,13 +187,12 @@ model Cart {
   updatedAt DateTime   @updatedAt
 }
 
-// 9. ЭЛЕМЕНТ КОРЗИНЫ
 model CartItem {
-  id        String   @id @default(uuid())
+  id        String  @id @default(uuid())
   cartId    String
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   
   answers   Json?    
 
@@ -137,65 +200,25 @@ model CartItem {
   @@unique([cartId, productId])
 }
 
-// --- СИСТЕМНЫЕ МОДЕЛИ ---
-
-model User {
-  id                String    @id @default(cuid())
-  name              String?
-  email             String?   @unique
-  role              UserRole  @default(USER) 
-  
-  // Подписки
-  subscriptionStatus  String?   @default("none") 
-  subscriptionPlanId  String?
-  subscriptionPlan    SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
-  subscriptionExpires DateTime? 
-  paymentMethodId     String?   
-  
-  emailVerified     DateTime?
-  image             String?
-  
-  phone             String?
-  restaurantName    String?
-  restaurantAddress String?
-  restaurantFormat  String?
-  birthDate         String?
-  socialLink        String?
-  
-  accounts          Account[]
-  sessions          Session[]
-  orders            Order[]
-  cart              Cart?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-
-  @@index([role])
-}
-
-// УЛУЧШЕННАЯ МОДЕЛЬ ТАРИФОВ
 model SubscriptionPlan {
   id           String   @id @default(uuid())
   name         String   @unique
   description  String?  @db.Text
-  badgeText    String?  // Например, "Best Value"
-  
-  // Преимущества (массив строк для галочек)
+  badgeText    String?  
   features     String[] 
 
-  // Цены для разных периодов
   priceMonth   Int      @default(0)
   price3Month  Int      @default(0)
   price6Month  Int      @default(0)
   priceYear    Int      @default(0)
   
-  // Доступы к функционалу (флаги)
   canAccessMarketplace Boolean @default(true)
   canCreateOrders      Boolean @default(true)
   hasPrioritySupport   Boolean @default(false)
   hasAnalytics         Boolean @default(false)
   
   isActive     Boolean  @default(true)
-  order        Int      @default(0) // Для сортировки в интерфейсе
+  order        Int      @default(0)
   
   users        User[]
   createdAt    DateTime @default(now())
@@ -203,20 +226,20 @@ model SubscriptionPlan {
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
   refresh_token_expires_in Int?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
 
@@ -261,23 +284,23 @@ model MenuItem {
 }
 
 model Direction {
-  id          String   @id @default(uuid())
-  title       String   
-  subtitle    String?  
-  description String?  @db.Text
-  href        String   
-  isComingSoon Boolean @default(false) // Добавьте эту строку
+  id           String   @id @default(uuid())
+  title        String   
+  subtitle     String?  
+  description  String?  @db.Text
+  href         String   
+  isComingSoon Boolean  @default(false) 
   
-  imageUrl    String?  @db.Text
-  iconName    String?  
+  imageUrl     String?  @db.Text
+  iconName     String?  
   
   badge       String?  @default("Open") 
   activeColor String?  @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
   bgColor     String?  @default("#F8FAFC")
   
-  order       Int      @default(0)
+  order        Int      @default(0)
   
-  isVisible   Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isVisible    Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
