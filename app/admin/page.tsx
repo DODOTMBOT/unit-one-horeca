@@ -1,136 +1,106 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Globe, LayoutDashboard, Loader2 } from "lucide-react";
-import useSWR from "swr";
+import { 
+  ShoppingBag, Users, GraduationCap, FileText, 
+  Settings2, Layout, Image as ImageIcon, Menu, 
+  ShieldCheck, ClipboardList, Tag, Smartphone,
+  ArrowRight, Globe, Layers
+} from "lucide-react";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export default function AdminDashboard() {
-  const { data: session, status } = useSession();
-
-  // Получаем количество заказов для бейджа
-  const { data: countData } = useSWR("/api/admin/orders/count", fetcher, {
-    refreshInterval: 30000, 
-  });
-
-  const newOrdersCount = countData?.count || 0;
-
-  if (status === "loading") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
-      </div>
-    );
-  }
-
-  if (!session) redirect("/api/auth/signin");
+export default function AdminHub() {
+  const sections = [
+    {
+      title: "Маркетплейс решений",
+      description: "Управление продажами и каталогом",
+      color: "bg-indigo-50 text-indigo-600",
+      links: [
+        { name: "Товары", href: "/admin/products", icon: ShoppingBag },
+        { name: "Заказы", href: "/admin/orders", icon: ClipboardList },
+        { name: "Категории", href: "/admin/categories", icon: Layers },
+      ]
+    },
+    {
+      title: "Операционные сервисы",
+      description: "Инструменты контроля и обучения",
+      color: "bg-emerald-50 text-emerald-600",
+      links: [
+        { name: "Dodo Hunter", href: "/admin/hunter", icon: ShieldCheck },
+        { name: "Платформа обучения", href: "/admin/learn", icon: GraduationCap },
+        { name: "Медицинские книжки", href: "/admin/med-cards", icon: Users },
+      ]
+    },
+    {
+      title: "Безопасность и ХАССП",
+      description: "Контроль качества и стандарты",
+      color: "bg-orange-50 text-orange-600",
+      links: [
+        { name: "Журналы ХАССП", href: "/admin/haccp", icon: FileText },
+        { name: "Маркировки", href: "/admin/marking", icon: Tag },
+      ]
+    },
+    {
+      title: "Настройки сайта",
+      description: "Контент и структура платформы",
+      color: "bg-slate-50 text-slate-600",
+      links: [
+        { name: "Экосистемы", href: "/admin/directions", icon: Globe },
+        { name: "Навигация", href: "/admin/navigation", icon: Menu },
+        { name: "Промо-баннеры", href: "/admin/promos", icon: ImageIcon },
+        { name: "Наши клиенты", href: "/admin/clients", icon: Layout },
+      ]
+    }
+  ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] pb-20">
-      <div className="mx-auto max-w-[1200px] px-6 pt-10">
+    <div className="min-h-screen bg-[#fafafa] pb-20 font-sans">
+      <div className="max-w-[1200px] mx-auto px-6 pt-12">
         
-        {/* ХЕДЕР */}
-        <header className="sticky top-6 z-40 mb-12 flex h-20 items-center justify-between rounded-full border border-white bg-white/70 px-8 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.04)]">
-          <div className="flex items-center gap-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e1b4b] text-white">
-              <LayoutDashboard size={18} />
-            </div>
-            <div>
-              <h1 className="text-lg font-black uppercase tracking-tighter text-[#1e1b4b]">Панель управления</h1>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                Администратор: <span className="text-indigo-500">{session.user?.email}</span>
-              </p>
-            </div>
+        <header className="mb-16">
+          <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter text-[#1e1b4b] mb-4">
+            Панель управления
+          </h1>
+          <div className="flex items-center gap-3">
+            <div className="h-1.5 w-12 bg-indigo-500 rounded-full" />
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+              Unit One Ecosystem Management
+            </p>
           </div>
-          
-          <Link href="/" className="flex items-center gap-2 rounded-full bg-[#1e1b4b] px-6 py-2.5 text-[11px] font-black uppercase tracking-widest text-white transition-all hover:bg-indigo-600 shadow-lg">
-            <Globe size={14} /> На сайт
-          </Link>
         </header>
 
-        {/* ПОЛНАЯ СЕТКА ВСЕХ БЛОКОВ (БЕЗ ИКОНОК) */}
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          
-          {/* ПОДПИСКИ - ЯНТАРНЫЙ */}
-          <Link href="/admin/subscriptions" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Подписки</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-amber-500 transition-all group-hover:w-32" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              Управление тарифами и автосписаниями
-            </p>
-          </Link>
-
-          {/* НАВИГАЦИЯ - ЦИАН */}
-          <Link href="/admin/menu" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Навигация</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-cyan-500 transition-all group-hover:w-32" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              Управление ссылками верхнего меню
-            </p>
-          </Link>
-
-          {/* ЗАКАЗЫ - ЭМЕРАЛЬД */}
-          <Link href="/admin/orders" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            {newOrdersCount > 0 && (
-              <div className="absolute right-10 top-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-[12px] font-black text-white shadow-lg animate-bounce">
-                {newOrdersCount}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {sections.map((section, idx) => (
+            <div key={idx} className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-sm">
+              <div className="mb-8">
+                <h2 className="text-xl font-black uppercase tracking-tight text-[#1e1b4b] mb-1">
+                  {section.title}
+                </h2>
+                <p className="text-xs font-medium text-slate-400">
+                  {section.description}
+                </p>
               </div>
-            )}
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Заказы</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-emerald-500 transition-all group-hover:w-32" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              Транзакции и статусы оплаты
-            </p>
-          </Link>
 
-          {/* ТОВАРЫ - СИНИЙ */}
-          <Link href="/admin/products" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Товары</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-blue-500 transition-all group-hover:w-32" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              Каталог, цены и управление решениями
-            </p>
-          </Link>
-
-          {/* ЭКОСИСТЕМА - ИНДИГО */}
-          <Link href="/admin/directions" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Экосистема</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-indigo-500 transition-all group-hover:w-20" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              Направления главной и логотипы
-            </p>
-          </Link>
-
-          {/* КЛИЕНТЫ - ФИОЛЕТОВЫЙ */}
-          <Link href="/admin/users" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Клиенты</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-purple-500 transition-all group-hover:w-32" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              База пользователей и права доступа
-            </p>
-          </Link>
-
-          {/* ПРОМО - ОРАНЖЕВЫЙ */}
-          <Link href="/admin/banners" className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-white bg-white p-10 shadow-sm transition-all hover:shadow-2xl hover:-translate-y-1">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-[#1e1b4b]">Промо</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-orange-500 transition-all group-hover:w-32" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-400 uppercase tracking-widest">
-              Баннеры и акции на главной странице
-            </p>
-          </Link>
-
-          {/* АНАЛИТИКА - СЕРЫЙ / В РАЗРАБОТКЕ */}
-          <div className="group relative flex min-h-[220px] flex-col justify-center rounded-[45px] border border-dashed border-slate-200 bg-slate-50 p-10 opacity-70 transition-all">
-            <h2 className="text-3xl font-black uppercase tracking-tighter text-slate-300">Отчеты</h2>
-            <div className="mt-2 h-1.5 w-24 rounded-full bg-slate-200" />
-            <p className="mt-6 text-[10px] font-bold leading-relaxed text-slate-300 uppercase tracking-widest italic">
-              Скоро: графики продаж и метрики
-            </p>
-          </div>
-
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {section.links.map((link, lIdx) => (
+                  <Link 
+                    key={lIdx} 
+                    href={link.href}
+                    className="group flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-[#1e1b4b] transition-all duration-300"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${section.color} group-hover:bg-white/10 group-hover:text-white`}>
+                        <link.icon size={20} />
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-tight text-slate-600 group-hover:text-white">
+                        {link.name}
+                      </span>
+                    </div>
+                    <ArrowRight size={14} className="text-slate-300 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

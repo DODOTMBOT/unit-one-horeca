@@ -1,25 +1,16 @@
 import { prisma } from '@/lib/prisma';
-import ProfileAlert from "@/components/ProfileAlert";
 import Link from "next/link";
 import Image from "next/image";
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-// Запасные иллюстрации
 const FallbackIllustration = ({ id }: { id: string }) => {
   if (id === 'marketplace') return (
     <svg viewBox="0 0 100 100" className="w-20 h-20 fill-current text-indigo-600">
       <path d="M20 35 L80 35 L85 85 L15 85 Z" fillOpacity="0.1" />
       <path d="M35 35 Q50 10 65 35" fill="none" stroke="currentColor" strokeWidth="4" />
       <rect x="20" y="35" width="60" height="50" rx="4" fill="none" stroke="currentColor" strokeWidth="4" />
-    </svg>
-  );
-  if (id === 'service') return (
-    <svg viewBox="0 0 100 100" className="w-20 h-20 fill-current text-orange-600">
-      <circle cx="50" cy="50" r="30" fillOpacity="0.1" />
-      <path d="M50 20 L50 30 M50 70 L50 80 M20 50 L30 50 M70 50 L80 50" stroke="currentColor" strokeWidth="4" />
-      <path d="M30 30 L37 37 M63 63 L70 70 M30 70 L37 63 M63 37 L70 30" stroke="currentColor" strokeWidth="4" />
-      <circle cx="50" cy="50" r="12" fill="none" stroke="currentColor" strokeWidth="4" />
     </svg>
   );
   return (
@@ -38,86 +29,97 @@ export default async function Home() {
   });
 
   return (
-    <div className="bg-white min-h-screen flex flex-col font-sans overflow-hidden">
-      <div className="flex-1 flex flex-col items-center px-6 lg:px-12 pt-12 md:pt-16">
+    <div className="bg-white min-h-screen flex flex-col font-sans overflow-x-hidden">
+      {/* Уменьшен верхний отступ (pt-4 md:pt-6), чтобы поднять контент к меню */}
+      <div className="flex-1 flex flex-col items-center px-4 md:px-8 pt-4 md:pt-6 text-center">
         
-        <div className="w-full max-w-4xl text-center mb-12">
-          <div className="mb-6 inline-block text-left">
-            <ProfileAlert />
-          </div>
-
-          <span className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-3 block">
-            Unit One Platform
-          </span>
-          
-          <h2 className="text-xl md:text-2xl font-black uppercase tracking-tight text-[#1e1b4b] mb-4">
+        {/* HEADER - Сделан компактнее по отступам */}
+        <div className="w-full max-w-4xl mb-8 md:mb-12">
+          <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#1e1b4b] mb-3">
             Экосистема бизнеса
           </h2>
-          
           <div className="h-1 w-16 bg-indigo-500 rounded-full mx-auto" />
         </div>
 
-        <div className="flex flex-wrap justify-center gap-12 lg:gap-20">
-          {directions.map((item: any) => (
-            <Link 
-              key={item.id} 
-              href={item.href || '#'}
-              className="group relative flex flex-col items-center gap-6 transition-all duration-500"
-            >
-              <div 
-                className={`
-                  w-40 h-40 md:w-56 md:h-56 
-                  rounded-[50px] md:rounded-[70px] 
-                  border border-slate-100
-                  flex items-center justify-center 
-                  grayscale group-hover:grayscale-0 
-                  group-hover:bg-white group-hover:border-transparent
-                  group-hover:shadow-[0_30px_60px_-15px] 
-                  transition-all duration-500
-                `}
-                style={{ 
-                  backgroundColor: item.bgColor || '#F8FAFC',
-                  // Исправлено: удален null и некорректные типы для boxShadow
-                  boxShadow: item.activeColor ? 'inherit' : undefined 
-                }}
-              >
-                <div className="relative w-full h-full flex items-center justify-center transition-transform duration-700 group-hover:scale-110">
-                  {item.imageUrl ? (
-                    <div className="relative w-3/4 h-3/4">
+        {/* GRID CONTAINER - Увеличены размеры кругов и вертикальные отступы (gap-y-20) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-20 md:gap-x-12 md:gap-y-24 w-full max-w-[1400px] mx-auto pb-24">
+          {directions.map((item: any) => {
+            const isSoon = item.isComingSoon === true;
+
+            const CardContent = (
+              <div className="flex flex-col items-center group">
+                {/* КРУГ: Увеличен размер до w-48/72 (было w-40/60) */}
+                <div 
+                  className={`
+                    relative w-44 h-44 sm:w-60 sm:h-60 lg:w-72 lg:h-72 
+                    rounded-full overflow-hidden
+                    flex items-center justify-center 
+                    transition-all duration-700 ease-in-out
+                    border border-slate-100 mb-6
+                    ${isSoon 
+                      ? 'border-dashed border-slate-300 bg-slate-50 grayscale opacity-40 shadow-none' 
+                      : 'bg-[#F8FAFC] group-hover:bg-white group-hover:border-transparent group-hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15)] grayscale group-hover:grayscale-0'
+                    }
+                  `}
+                >
+                  <div className={`relative w-full h-full transition-transform duration-700 ease-out ${!isSoon && 'group-hover:scale-110'}`}>
+                    {item.imageUrl ? (
                       <Image 
                         src={item.imageUrl} 
                         alt={item.title} 
                         fill 
-                        className="object-contain"
-                        unoptimized
+                        className="object-cover" 
+                        unoptimized 
                       />
+                    ) : (
+                      <FallbackIllustration id={item.id} />
+                    )}
+                  </div>
+
+                  {isSoon && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-sm z-10">
+                       <span className="bg-[#1e1b4b] text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                         Soon
+                       </span>
                     </div>
-                  ) : (
-                    <FallbackIllustration id={item.id} />
                   )}
                 </div>
-              </div>
 
-              <div className="text-center transition-all duration-500 opacity-40 group-hover:opacity-100 group-hover:translate-y-1">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                  {item.title}
-                </p>
-                <p className="text-lg font-bold text-[#1e1b4b]">
-                  {item.subtitle}
-                </p>
+                {/* ТЕКСТ - Чуть увеличены размеры для баланса с большими кругами */}
+                <div className={`text-center transition-all duration-500 ${isSoon ? 'opacity-30' : 'opacity-60 group-hover:opacity-100 group-hover:translate-y-1'}`}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-2">
+                    {item.title}
+                  </p>
+                  <h3 className="text-xl md:text-2xl font-bold text-[#1e1b4b] leading-tight px-2">
+                    {item.subtitle}
+                  </h3>
+                </div>
               </div>
-            </Link>
-          ))}
+            );
+
+            return isSoon ? (
+              <div key={item.id} className="relative cursor-default flex justify-center">
+                {CardContent}
+              </div>
+            ) : (
+              <Link 
+                key={item.id} 
+                href={item.href || '#'} 
+                className="relative cursor-pointer flex justify-center"
+              >
+                {CardContent}
+              </Link>
+            );
+          })}
         </div>
       </div>
 
-      <footer className="w-full py-12 opacity-30 hover:opacity-100 transition-opacity mt-auto">
-        <div className="max-w-[1440px] mx-auto px-12 flex flex-col md:flex-row justify-center items-center gap-8 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-          <p>ИП Арутюнов Эмиль Вагифович</p>
-          <p>ИНН: 502806496938</p>
-          <div className="flex gap-6">
-            <Link href="/policy">Политика</Link>
-            <Link href="/terms">Оферта</Link>
+      <footer className="w-full py-10 opacity-30 hover:opacity-100 transition-opacity mt-auto border-t border-slate-50">
+        <div className="max-w-[1400px] mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <p>© Unit One Platform • {new Date().getFullYear()}</p>
+          <div className="flex gap-8">
+            <Link href="/policy" className="hover:text-indigo-600 transition-colors">Политика</Link>
+            <Link href="/terms" className="hover:text-indigo-600 transition-colors">Оферта</Link>
           </div>
         </div>
       </footer>

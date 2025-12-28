@@ -266,6 +266,7 @@ model Direction {
   subtitle    String?  
   description String?  @db.Text
   href        String   
+  isComingSoon Boolean @default(false) // Добавьте эту строку
   
   imageUrl    String?  @db.Text
   iconName    String?  
