@@ -145,6 +145,13 @@ model User {
   email             String?   @unique
   role              UserRole  @default(USER) 
   
+  // Подписки
+  subscriptionStatus  String?   @default("none") 
+  subscriptionPlanId  String?
+  subscriptionPlan    SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
+  subscriptionExpires DateTime? 
+  paymentMethodId     String?   
+  
   emailVerified     DateTime?
   image             String?
   
@@ -163,6 +170,36 @@ model User {
   updatedAt         DateTime  @updatedAt
 
   @@index([role])
+}
+
+// УЛУЧШЕННАЯ МОДЕЛЬ ТАРИФОВ
+model SubscriptionPlan {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  description  String?  @db.Text
+  badgeText    String?  // Например, "Best Value"
+  
+  // Преимущества (массив строк для галочек)
+  features     String[] 
+
+  // Цены для разных периодов
+  priceMonth   Int      @default(0)
+  price3Month  Int      @default(0)
+  price6Month  Int      @default(0)
+  priceYear    Int      @default(0)
+  
+  // Доступы к функционалу (флаги)
+  canAccessMarketplace Boolean @default(true)
+  canCreateOrders      Boolean @default(true)
+  hasPrioritySupport   Boolean @default(false)
+  hasAnalytics         Boolean @default(false)
+  
+  isActive     Boolean  @default(true)
+  order        Int      @default(0) // Для сортировки в интерфейсе
+  
+  users        User[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model Account {
@@ -240,6 +277,6 @@ model Direction {
   order       Int      @default(0)
   
   isVisible   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

@@ -1,0 +1,22 @@
+import { getServerSession } from "next-auth";
+import { prisma } from "@/lib/prisma";
+import { redirect } from "next/navigation";
+
+// Эта функция — твой охранник
+export async function checkFeatureAccess(featureName: "canAccessMarketplace" | "hasAnalytics") {
+  const session = await getServerSession();
+  
+  if (!session) redirect("/api/auth/signin");
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email },
+    include: { subscriptionPlan: true }
+  });
+
+  // Если у пользователя в его плане эта галочка (featureName) выключена (false)
+  if (!user?.subscriptionPlan?.[featureName]) {
+    redirect("/subscribe?msg=upgrade_your_plan");
+  }
+
+  return user;
+}
