@@ -1,16 +1,15 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { LogOut } from "lucide-react";
+import { LogOut, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
 export default async function PartnerHub() {
   const session = await getServerSession(authOptions);
   
   const modules = [
-    { name: "Менеджер офиса", info: "Управление ресурсами: регистрация ресторанов, ведение реестра оборудования и гибкое распределение сотрудников по точкам сети в едином интерфейсе.", href: "/partner/office" },
-    { name: "Журналы HACCP", info: "Контроль здоровья и температур", href: "/partner/haccp" },
-    { name: "Аналитика и мониторинг", info: "Контроль здоровья и температур", href: "/partner/analytics" },
-    { name: "Аналитика", info: "Отчеты по эффективности", href: "#", isSoon: true },
+    { name: "Сотрудники", info: "Управление штатом и ролями", href: "/partner/staff" },
+    { name: "Рестораны", info: "Редактирование, создание и список объектов", href: "/partner/establishments" },
+    { name: "Оборудование", info: "Редактирование, создание и список объектов", href: "/partner/equipment" },
     { name: "База знаний", info: "Стандарты и инструкции", href: "#", isSoon: true },
   ];
 
@@ -22,21 +21,28 @@ export default async function PartnerHub() {
       <div className="max-w-[1400px] mx-auto">
         
         {/* TOP INTERFACE BAR */}
-        <div className="flex items-center justify-between mb-20">
+        <header className="flex items-center justify-between mb-20">
           
-          {/* Левый пустой блок для центровки */}
-          <div className="flex-1 hidden md:flex justify-start" />
+          {/* ЛЕВАЯ ЧАСТЬ: КНОПКА НАЗАД */}
+          <div className="flex-1 flex justify-start">
+            <Link 
+              href="/partner" 
+              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50 flex items-center gap-3 group"
+            >
+              <ArrowLeft size={16} className="text-slate-400" />
+              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Панель партнёра</p>
+            </Link>
+          </div>
 
-          {/* ЦЕНТРАЛЬНЫЙ БЛОК (ДЛИННЫЙ И УЗКИЙ) */}
-          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none">
+          {/* ЦЕНТРАЛЬНЫЙ БЛОК */}
+          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem] hidden lg:block">
+            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
               Панель партнёра
             </h1>
           </div>
 
           {/* ПРАВАЯ ЧАСТЬ: КНОПКИ УПРАВЛЕНИЯ */}
           <div className="flex-1 flex items-center justify-end gap-2">
-            {/* Кнопка ГЛАВНАЯ */}
             <Link 
               href="/" 
               className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50"
@@ -44,17 +50,15 @@ export default async function PartnerHub() {
               <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Главная</p>
             </Link>
 
-            {/* Кнопка ПРОФИЛЬ */}
             <Link 
               href="/profile" 
               className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50"
             >
               <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">
-                {session?.user?.name || "Эмиль"}
+                {session?.user?.surname || session?.user?.name || "Партнёр"}
               </p>
             </Link>
 
-            {/* Кнопка ВЫХОД */}
             <Link 
               href="/" 
               className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"
@@ -63,9 +67,9 @@ export default async function PartnerHub() {
               <LogOut size={18} />
             </Link>
           </div>
-        </div>
+        </header>
 
-        {/* GRID MODULES */}
+        {/* GRID MODULES (Плоский стиль без теней) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {modules.map((module, idx) => {
             const isSoon = module.isSoon;

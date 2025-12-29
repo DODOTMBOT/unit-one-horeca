@@ -5,11 +5,13 @@ import { usePathname } from "next/navigation";
 export default function HeaderWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  // Проверяем, начинается ли путь с /partner
-  // Если да — возвращаем null (скрываем содержимое), если нет — показываем
-  const isPartnerPage = pathname?.startsWith("/partner");
+  /**
+   * Скрываем содержимое обертки (хедер, футер, отступы), 
+   * если путь начинается с /partner ИЛИ с /profile.
+   */
+  const isHiddenPage = pathname?.startsWith("/partner") || pathname?.startsWith("/profile");
 
-  if (isPartnerPage) return null;
+  if (isHiddenPage) return null;
 
   return <>{children}</>;
 }

@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import ProfileDashboard from "@/components/ProfileDashboard";
-import { ShieldCheck, ChevronLeft } from "lucide-react";
+import { ShieldCheck, ArrowLeft, Home } from "lucide-react";
 import Link from "next/link";
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -28,7 +28,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         },
         orderBy: { createdAt: 'desc' }
       },
-      establishment: true, 
+      establishments: true, 
       ownedEstablishments: true,
       parentPartner: true,
     }
@@ -39,38 +39,63 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
   const isPartner = user.role === "PARTNER";
 
   return (
-    <div className="min-h-screen bg-[#F1F3F6] pb-20 font-sans">
-      <div className="max-w-[1000px] mx-auto px-4 pt-8">
+    <div 
+      // ДОБАВЛЕНО: Этот атрибут отключает глобальное меню, если это настроено в CSS/layout
+      data-page="partner-terminal" 
+      className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12"
+    >
+      <div className="max-w-[1400px] mx-auto">
         
-        <header className="sticky top-4 z-40 mb-8 flex h-16 items-center justify-between rounded-full border border-white bg-white/80 px-6 backdrop-blur-xl shadow-sm">
-          <div className="flex items-center gap-4">
-            {/* Заменили на Link, чтобы избежать ошибок с BackButton и JavaScript URL */}
+        {/* TOP INTERFACE BAR */}
+        <header className="flex items-center justify-between mb-20">
+          
+          {/* ЛЕВАЯ ЧАСТЬ: КНОПКА НАЗАД */}
+          <div className="flex-1 flex justify-start">
             <Link 
-              href="/partner/establishments" 
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-all"
+              href="/partner/office" 
+              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-all hover:bg-slate-50 flex items-center gap-3 group shadow-sm"
             >
-               <ChevronLeft size={16} />
+              <ArrowLeft size={16} className="text-slate-400 group-hover:-translate-x-1 transition-transform" />
+              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">В менеджер</p>
             </Link>
-            
-            <div className="flex flex-col leading-none">
-                <h1 className="text-sm font-black uppercase tracking-tighter text-[#1e1b4b]">
-                  {user.name} {user.surname}
-                </h1>
-                <span className="text-[10px] font-bold text-slate-400">
-                  {isPartner ? 'Партнер' : 'Сотрудник'} • {user.email}
-                </span>
+          </div>
+
+          {/* ЦЕНТРАЛЬНЫЙ БЛОК (ДАННЫЕ ПОЛЬЗОВАТЕЛЯ) */}
+          <div className="px-12 py-4 bg-white border border-slate-100 rounded-[1.5rem] hidden lg:flex flex-col items-center shadow-sm">
+            <h1 className="text-xs font-black uppercase tracking-[0.2em] text-slate-800 leading-none mb-1">
+              Профиль: {user.name} {user.surname}
+            </h1>
+            <div className="flex items-center gap-2">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{user.email}</span>
+                <div className="w-1 h-1 bg-slate-200 rounded-full" />
+                <div className="flex items-center gap-1">
+                    <ShieldCheck size={10} className="text-emerald-500" />
+                    <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Active</span>
+                </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-100">
-             <ShieldCheck size={12} className="text-emerald-500" />
-             <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest">Active</span>
+          {/* ПРАВАЯ ЧАСТЬ: ГЛАВНАЯ */}
+          <div className="flex-1 flex items-center justify-end gap-2">
+            <Link 
+              href="/partner" 
+              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50 shadow-sm flex items-center gap-3"
+            >
+              <Home size={16} className="text-slate-400" />
+              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Панель</p>
+            </Link>
           </div>
         </header>
 
-        <main>
+        {/* ОСНОВНОЙ КОНТЕНТ (DASHBOARD) */}
+        <main className="max-w-[1000px] mx-auto">
            <ProfileDashboard user={user} orders={user.orders as any} />
         </main>
+
+        {/* FOOTER */}
+        <div className="mt-32 pt-10 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-8 opacity-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-900">Unit One Ecosystem v.2.4</p>
+        </div>
       </div>
     </div>
   );

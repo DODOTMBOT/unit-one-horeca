@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { 
-  ArrowLeft, Loader2, Plus, X, Search, Trash2, Edit3, ChevronDown, Check
+  ArrowLeft, Loader2, Plus, X, Search, Trash2, Edit3, ChevronDown, Check, Home, Settings, LayoutGrid
 } from "lucide-react";
 import Link from "next/link";
 
@@ -40,7 +40,6 @@ function CustomSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        // Убрали truncate, добавили flex-1 для текста, чтобы кнопка тянулась по высоте если надо
         className="w-full flex items-start justify-between bg-slate-50 border-transparent rounded-xl px-4 py-3 text-[11px] font-bold outline-none hover:bg-slate-100 transition-all text-left min-h-[44px]"
       >
         <span className={`flex-1 pr-2 leading-tight ${selectedOption ? "text-slate-800" : "text-slate-400"}`}>
@@ -60,7 +59,6 @@ function CustomSelect({
                   onChange(opt.id);
                   setIsOpen(false);
                 }}
-                // Заменили items-center на items-start для длинных строк и убрали truncate
                 className="w-full flex items-start justify-between px-4 py-3 text-[11px] font-bold hover:bg-indigo-50 hover:text-indigo-600 transition-colors text-left border-b border-slate-50 last:border-0"
               >
                 <span className="flex-1 pr-2 leading-snug">{opt.name}</span>
@@ -167,135 +165,172 @@ export default function PartnerEquipmentPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#fafafa] pb-20 font-sans text-[#1e1b4b]">
-      <div className="max-w-[1000px] mx-auto px-6 pt-12">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
+      <div className="max-w-[1400px] mx-auto">
         
-        <header className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/partner" className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 transition-all shadow-sm">
-              <ArrowLeft size={18} />
+        {/* TOP INTERFACE BAR */}
+        <header className="flex items-center justify-between mb-20">
+          <div className="flex-1 flex justify-start">
+            <Link 
+              href="/partner/office" 
+              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-all hover:bg-slate-50 flex items-center gap-3 group shadow-sm"
+            >
+              <ArrowLeft size={16} className="text-slate-400 group-hover:-translate-x-1 transition-transform" />
+              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Менеджер офиса</p>
             </Link>
-            <h1 className="text-2xl font-black uppercase tracking-tighter">Оборудование</h1>
-            <span className="px-2 py-0.5 bg-indigo-50 rounded text-[9px] font-bold text-indigo-600 uppercase tracking-widest">{equipment.length} ед.</span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem] hidden lg:block shadow-sm">
+            <h1 className="text-xs font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
+             Оборудование  <span className="text-indigo-500 ml-2 opacity-50">{equipment.length}</span>
+            </h1>
+          </div>
+
+          <div className="flex-1 flex items-center justify-end gap-2">
+            <Link 
+              href="/partner" 
+              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50 shadow-sm flex items-center gap-3"
+            >
+              <Home size={16} className="text-slate-400" />
+              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Главная</p>
+            </Link>
+          </div>
+        </header>
+
+        {/* CONTROLS AREA */}
+        <div className="max-w-[1000px] mx-auto">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
               <input 
-                placeholder="Поиск по названию..." 
-                className="pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-[11px] font-bold outline-none focus:border-indigo-500 w-[240px] transition-all shadow-sm"
+                placeholder="ПОИСК ПО НАЗВАНИЮ..." 
+                className="pl-12 pr-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] text-[11px] font-bold uppercase tracking-wider outline-none focus:ring-2 focus:ring-indigo-500/10 w-full sm:w-[320px] transition-all shadow-sm"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
+
             <button 
               onClick={() => {
                 setIsAdding(!isAdding);
                 if (isAdding) setEditingId(null);
               }}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md ${
-                isAdding ? "bg-white border border-slate-200 text-slate-400" : "bg-[#1e1b4b] text-white hover:bg-indigo-600"
+              className={`px-8 py-4 rounded-[1.5rem] transition-all flex items-center gap-3 shadow-sm border ${
+                isAdding 
+                ? "bg-rose-50 border-rose-100 text-rose-500" 
+                : "bg-[#1e1b4b] text-white hover:bg-indigo-600"
               }`}
             >
-              {isAdding ? <X size={14} /> : <Plus size={14} />}
-              {isAdding ? "Отмена" : "Добавить"}
+              {isAdding ? <X size={16} /> : <Plus size={16} />}
+              <p className="text-[10px] font-black uppercase tracking-widest leading-none">
+                {isAdding ? "Отмена" : "Добавить объект"}
+              </p>
             </button>
           </div>
-        </header>
 
-        {isAdding && (
-          <form onSubmit={handleSubmit} className="mb-10 bg-white p-8 rounded-[32px] border border-slate-100 shadow-xl shadow-indigo-900/5 animate-in fade-in slide-in-from-top-4">
-            <h2 className="text-[10px] font-black uppercase text-indigo-600 mb-6 tracking-widest">
-              {editingId ? "Редактирование устройства" : "Новое устройство"}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Название</label>
-                <input required className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:bg-white focus:ring-2 ring-indigo-500/10 transition-all" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Холодильник напитки" />
+          {isAdding && (
+            <form onSubmit={handleSubmit} className="mb-12 bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-indigo-900/5 animate-in fade-in slide-in-from-top-4">
+              <h2 className="text-[10px] font-black uppercase text-indigo-600 mb-8 tracking-widest">
+                {editingId ? "Редактирование устройства" : "Регистрация нового оборудования"}
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Название</label>
+                  <input required className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none focus:bg-white focus:ring-2 ring-indigo-500/10 transition-all" value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="ХОЛОДИЛЬНИК" />
+                </div>
+                
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Зона установки</label>
+                  <input required className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-[11px] font-black uppercase tracking-widest outline-none focus:bg-white focus:ring-2 ring-indigo-500/10 transition-all" value={form.zone} onChange={e => setForm({...form, zone: e.target.value})} placeholder="КУХНЯ / БАР" />
+                </div>
+
+                <CustomSelect 
+                  label="Тип"
+                  value={form.type}
+                  onChange={(val) => setForm({...form, type: val})}
+                  options={[
+                    { id: "Холодильное", name: "Холодильное" },
+                    { id: "Морозильное", name: "Морозильное" }
+                  ]}
+                />
+
+                <CustomSelect 
+                  label="Заведение"
+                  value={form.establishmentId}
+                  onChange={(val) => setForm({...form, establishmentId: val})}
+                  options={establishments.map(est => ({ 
+                    id: est.id, 
+                    name: `${est.name} (${est.address})` 
+                  }))}
+                  placeholder="Выбрать точку"
+                />
               </div>
               
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black uppercase text-slate-400 ml-1">Зона установки</label>
-                <input required className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 text-[11px] font-bold outline-none focus:bg-white focus:ring-2 ring-indigo-500/10 transition-all" value={form.zone} onChange={e => setForm({...form, zone: e.target.value})} placeholder="Кухня / Бар" />
+              <div className="mt-10 pt-8 border-t border-slate-50 flex justify-end">
+                <button disabled={isSaving} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20">
+                  {isSaving ? <Loader2 size={16} className="animate-spin" /> : (editingId ? "Сохранить изменения" : "Зарегистрировать объект")}
+                </button>
               </div>
+            </form>
+          )}
 
-              <CustomSelect 
-                label="Тип"
-                value={form.type}
-                onChange={(val) => setForm({...form, type: val})}
-                options={[
-                  { id: "Холодильное", name: "Холодильное" },
-                  { id: "Морозильное", name: "Морозильное" }
-                ]}
-              />
-
-              <CustomSelect 
-                label="Заведение"
-                value={form.establishmentId}
-                onChange={(val) => setForm({...form, establishmentId: val})}
-                options={establishments.map(est => ({ 
-                  id: est.id, 
-                  name: `${est.name} (${est.address})` 
-                }))}
-                placeholder="Выбрать точку"
-              />
+          <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden">
+            <div className="grid grid-cols-4 px-10 py-5 bg-slate-50/50 border-b border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400">
+              <div>Название</div>
+              <div>Тип / Зона</div>
+              <div>Заведение</div>
+              <div className="text-right">Действия</div>
             </div>
-            
-            <div className="mt-8 pt-6 border-t border-slate-50 flex justify-end">
-              <button disabled={isSaving} className="bg-indigo-600 text-white px-10 py-3.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20">
-                {isSaving ? <Loader2 size={14} className="animate-spin" /> : (editingId ? "Сохранить изменения" : "Зарегистрировать объект")}
-              </button>
-            </div>
-          </form>
-        )}
 
-        <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="grid grid-cols-4 px-8 py-4 bg-slate-50/50 border-b border-slate-100 text-[9px] font-black uppercase tracking-widest text-slate-400">
-            <div>Название</div>
-            <div>Тип / Зона</div>
-            <div>Заведение</div>
-            <div className="text-right">Действия</div>
+            {loading ? (
+              <div className="py-24 flex flex-col items-center gap-4">
+                <Loader2 className="animate-spin text-indigo-500" size={32} />
+                <p className="text-[10px] font-black uppercase text-slate-300 tracking-[0.2em]">Синхронизация парка...</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {filteredEq.map((eq) => (
+                  <div key={eq.id} className="grid grid-cols-4 items-center px-10 py-7 hover:bg-slate-50/30 transition-colors group">
+                    <div className="flex flex-col">
+                      <span className="text-[14px] font-black uppercase tracking-tight text-[#1e1b4b]">{eq.name}</span>
+                      <span className="text-[10px] font-bold text-slate-300 uppercase mt-1">ID: {eq.id.slice(0,8)}</span>
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      <span className="text-[11px] font-black text-indigo-500 uppercase">{eq.type}</span>
+                      <span className="text-[11px] font-bold text-slate-400 uppercase mt-1">{eq.zone || "Основная зона"}</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[12px] font-black uppercase text-slate-600">{eq.establishment?.name}</span>
+                    </div>
+
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => handleEdit(eq)}
+                        className={`p-3 rounded-xl transition-all shadow-sm ${editingId === eq.id ? "bg-indigo-600 text-white" : "bg-white border border-slate-100 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"}`}
+                      >
+                        <Edit3 size={14} />
+                      </button>
+                      <button 
+                        onClick={() => deleteEquipment(eq.id)}
+                        className="p-3 rounded-xl bg-white border border-slate-100 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all shadow-sm"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-indigo-500" size={24} /></div>
-          ) : (
-            <div className="divide-y divide-slate-50">
-              {filteredEq.map((eq) => (
-                <div key={eq.id} className="grid grid-cols-4 items-center px-8 py-5 hover:bg-slate-50/30 transition-colors group">
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-black uppercase tracking-tight text-slate-800">{eq.name}</span>
-                    <span className="text-[10px] font-bold text-slate-300 uppercase mt-0.5">ID: {eq.id.slice(0,8)}</span>
-                  </div>
-                  
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-extrabold text-indigo-500 uppercase">{eq.type}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase mt-0.5">{eq.zone || "Основная зона"}</span>
-                  </div>
-
-                  <div>
-                    <span className="text-[11px] font-black uppercase text-slate-600">{eq.establishment?.name}</span>
-                  </div>
-
-                  <div className="flex justify-end gap-2">
-                    <button 
-                      onClick={() => handleEdit(eq)}
-                      className={`p-2.5 rounded-lg transition-all ${editingId === eq.id ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-400 hover:bg-indigo-50 hover:text-indigo-600"}`}
-                    >
-                      <Edit3 size={14} />
-                    </button>
-                    <button 
-                      onClick={() => deleteEquipment(eq.id)}
-                      className="p-2.5 rounded-lg bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+          <div className="mt-32 pt-10 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-8 opacity-20">
+            <div className="flex items-center gap-3">
+              <LayoutGrid size={18} />
+              <p className="text-[11px] font-bold uppercase tracking-[0.4em]">Unit One Ecosystem v.2.4</p>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
