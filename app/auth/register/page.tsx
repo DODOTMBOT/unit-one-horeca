@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Loader2, User, Lock, Mail, Tag, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,7 +18,7 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
     roleType: "partner", // partner или employee
-    partnerByCode: "",
+    inviteCode: "", // Изменено с partnerByCode
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +45,6 @@ export default function RegisterPage() {
         throw new Error(data.error || "Ошибка регистрации");
       }
 
-      // Если все ок — редирект на логин
       router.push("/auth/login?success=1");
     } catch (err: any) {
       setError(err.message);
@@ -64,7 +63,6 @@ export default function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Переключатель ролей */}
           <div className="grid grid-cols-2 gap-3 p-1.5 bg-slate-50 rounded-2xl mb-6">
             <button
               type="button"
@@ -124,17 +122,17 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Поле кода партнера для сотрудника */}
+          {/* Поле кода заведения для сотрудника */}
           {formData.roleType === 'employee' && (
             <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
-              <label className="text-[9px] font-black uppercase text-indigo-500 ml-4">Код партнера (7 знаков)</label>
+              <label className="text-[9px] font-black uppercase text-indigo-500 ml-4">Код заведения (7 знаков)</label>
               <input 
                 required
-                placeholder="Напр: AB123XY"
+                placeholder="Напр: ABC1234"
                 maxLength={7}
                 className="w-full bg-indigo-50/50 border border-indigo-100 rounded-2xl px-5 py-3.5 text-xs font-black text-[#1e1b4b] outline-none placeholder:text-indigo-200" 
-                value={formData.partnerByCode}
-                onChange={e => setFormData({...formData, partnerByCode: e.target.value.toUpperCase()})}
+                value={formData.inviteCode}
+                onChange={e => setFormData({...formData, inviteCode: e.target.value.toUpperCase()})}
               />
             </div>
           )}

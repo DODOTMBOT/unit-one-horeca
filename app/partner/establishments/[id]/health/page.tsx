@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { ArrowLeft, Loader2, ChevronLeft, ChevronRight, Check, Calendar, Download, Info, X } from "lucide-react";
+import { ArrowLeft, Loader2, ChevronLeft, ChevronRight, Check, Calendar, Download, Info, X, Activity } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import * as XLSX from "xlsx";
@@ -36,6 +36,7 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
     const loadData = async () => {
       try {
         setLoading(true);
+        // API получения сотрудников конкретной точки
         const staffRes = await fetch(`/api/partner/haccp/staff/${id}`);
         const staffData = await staffRes.json();
         const validStaff = Array.isArray(staffData) ? staffData : [];
@@ -43,6 +44,7 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
         
         const year = viewDate.getFullYear();
         const month = viewDate.getMonth();
+        // API получения логов за месяц
         const logsRes = await fetch(`/api/partner/haccp/health/monthly?establishmentId=${id}&year=${year}&month=${month}`);
         const logsData = await logsRes.json();
         
@@ -73,6 +75,7 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
     }));
     setActiveCell(null);
 
+    // API сохранения отметки
     await fetch("/api/partner/haccp/health", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -145,13 +148,12 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
   return (
     <div className="min-h-screen bg-[#FDFDFD] font-sans text-slate-900 pb-20">
       
-      {/* ПАНЕЛЬ НАВИГАЦИИ */}
       <div className="sticky top-0 z-[70] bg-white border-b border-slate-100 shadow-sm">
         <div className="max-w-full px-8 h-20 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/manager/haccp" className="group flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all">
+            <Link href={`/partner/establishments/${id}`} className="group flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all">
               <ArrowLeft size={18} />
-              <span className="text-[11px] font-black uppercase tracking-widest text-indigo-950">Назад</span>
+              <span className="text-[11px] font-black uppercase tracking-widest text-indigo-950">В панель заведения</span>
             </Link>
             <button 
                 onClick={() => setShowInfoModal(true)}
@@ -162,7 +164,7 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
             </button>
             <div className="h-8 w-[1px] bg-slate-100" />
             <div>
-                <h1 className="text-lg font-black uppercase tracking-tighter">Журнал здоровья</h1>
+                <h1 className="text-lg font-black uppercase tracking-tighter leading-tight">Журнал здоровья</h1>
                 <div className="flex items-center gap-2 text-[9px] font-bold text-emerald-600 uppercase leading-none">
                     <Calendar size={10} />
                     Сегодня: {today.toLocaleDateString('ru-RU')}
@@ -177,7 +179,7 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
             >
               <Download size={16} className="text-slate-400 group-hover:text-indigo-600" />
               <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 italic">
-                Выгрузить за {monthName}
+                Экспорт {monthName}
               </span>
             </button>
 
@@ -202,7 +204,6 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
         <table className="w-full border-separate border-spacing-0">
           <thead>
             <tr>
-              {/* Исправлен z-index и добавлен bg-white для предотвращения просвечивания */}
               <th className="sticky left-0 z-[50] bg-white text-left pr-6 pb-6 w-[280px]">
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Сотрудник</span>
               </th>
@@ -224,7 +225,6 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
           <tbody>
             {employees.map((emp) => (
               <tr key={emp.id} className="group">
-                {/* Исправлен z-index и добавлен bg-white */}
                 <td className="sticky left-0 z-[40] bg-white pr-6 py-2">
                   <div className="h-10 flex items-center bg-white border border-slate-100 rounded-xl px-4 shadow-sm group-hover:border-indigo-100 transition-all">
                     <span className="text-[11px] font-black uppercase tracking-tight text-slate-800 whitespace-nowrap">
@@ -280,7 +280,6 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
             ))}
 
             <tr>
-              {/* Исправлен z-index и добавлен bg-white для нижней подписи */}
               <td className="sticky left-0 z-[40] bg-white pr-6 pt-10 pb-4">
                 <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600/50">Подпись менеджера</span>
               </td>
@@ -307,7 +306,6 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
         </table>
       </div>
 
-      {/* МОДАЛЬНОЕ ОКНО ПАМЯТКИ */}
       {showInfoModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <div className="bg-white rounded-[32px] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in duration-200">
@@ -321,20 +319,7 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
                     <div className="space-y-4 text-sm text-slate-600 leading-relaxed font-medium">
                         <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
                             <p className="font-bold text-emerald-700 mb-1">1. Быстрое заполнение (Текущий день):</p>
-                            Одиночное нажатие на пустую ячейку сотрудника автоматически ставит статус <span className="font-bold">"ЗД" (Здоров)</span> и вашу электронную подпись.
-                        </div>
-                        <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
-                            <p className="font-bold text-indigo-700 mb-1">2. Смена статуса:</p>
-                            Если ячейка уже заполнена, нажатие на неё откроет меню выбора. Вы можете выбрать: Отпуск, Выходной, Больничный или Отстранение.
-                        </div>
-                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                            <p className="font-bold text-slate-700 mb-1">3. Обозначения:</p>
-                            <ul className="list-disc ml-5 space-y-1">
-                                <li><span className="font-bold text-emerald-600">ЗД</span> — Здоров, допущен к работе.</li>
-                                <li><span className="font-bold text-rose-600">ОТСТ</span> — Отстранен (признаки болезни).</li>
-                                <li><span className="font-bold text-slate-400">В</span> — Выходной (проставляется автоматически для прошлых дат).</li>
-                                <li><span className="font-bold text-amber-600">Б/Л</span> — Официальный больничный.</li>
-                            </ul>
+                            Одиночное нажатие на пустую ячейку сотрудника автоматически ставит статус <span className="font-bold">"ЗД" (Здоров)</span> и подпись.
                         </div>
                     </div>
                     <button 
@@ -348,7 +333,6 @@ export default function MonthlyHealthLog({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* ЛЕГЕНДА */}
       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/90 backdrop-blur-md px-6 py-3 rounded-full border border-slate-100 shadow-xl z-50">
          {STATUSES.map(s => (
            <div key={s.code} className="flex items-center gap-2 px-3 border-r last:border-0 border-slate-100">

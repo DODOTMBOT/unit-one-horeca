@@ -11,8 +11,21 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { establishmentId, employeeId, comment, date } = body;
 
+    // Безопасность: менеджер может ставить отметки только в своем заведении
+    const user = session.user as any;
+    if (user.role !== "PARTNER" && user.role !== "OWNER" && user.establishmentId !== establishmentId) {
+      return NextResponse.json({ error: "Access Denied" }, { status: 403 });
+    }
+
     const logDate = new Date(date);
+    // Устанавливаем полдень, чтобы избежать проблем с переходом дат в разных часовых поясах
     logDate.setHours(12, 0, 0, 0); 
+
+    // Границы дня для поиска
+    const startOfDay = new Date(logDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(logDate);
+    endOfDay.setHours(23, 59, 59, 999);
 
     // Ищем существующую запись на этот день
     const existing = await prisma.healthLog.findFirst({
@@ -20,8 +33,8 @@ export async function POST(req: Request) {
         employeeId,
         establishmentId,
         date: {
-          gte: new Date(new Date(logDate).setHours(0,0,0,0)),
-          lte: new Date(new Date(logDate).setHours(23,59,59,999))
+          gte: startOfDay,
+          lte: endOfDay
         }
       }
     });
@@ -31,7 +44,7 @@ export async function POST(req: Request) {
         where: { id: existing.id },
         data: { 
           comment, 
-          inspectorId: session.user.id // Сохраняем того, кто обновил
+          inspectorId: user.id 
         }
       });
       return NextResponse.json(updated);
@@ -42,7 +55,7 @@ export async function POST(req: Request) {
         date: logDate,
         employeeId,
         establishmentId,
-        inspectorId: session.user.id, // Сохраняем проверяющего
+        inspectorId: user.id,
         comment,
         hasPustules: false,
         hasInfections: false,
@@ -53,7 +66,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(newLog);
   } catch (error) {
-    console.error(error);
+    console.error("POST_HEALTH_ERROR:", error);
     return NextResponse.json({ error: "Error saving log" }, { status: 500 });
   }
 }

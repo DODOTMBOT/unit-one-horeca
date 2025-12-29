@@ -10,11 +10,11 @@ datasource db {
 // --- ПЕРЕЧИСЛЕНИЯ (ENUMS) ---
 
 enum UserRole {
-  OWNER    // Главный администратор всей платформы (Вы)
-  ADMIN    // Оставляем временно, чтобы база не ругалась на старые данные
-  PARTNER  // Владелец кафе (бизнеса)
-  MANAGER  // Управляющий (назначается партнером)
-  USER     // Линейный сотрудник
+  OWNER   // Главный администратор всей платформы
+  ADMIN   // Системный администратор
+  PARTNER // Владелец кафе (бизнеса)
+  MANAGER // Управляющий (назначается партнером)
+  USER    // Линейный сотрудник
 }
 
 enum OrderStatus {
@@ -27,38 +27,37 @@ enum OrderStatus {
 // --- СИСТЕМНЫЕ МОДЕЛИ ---
 
 model User {
-  id             String    @id @default(cuid())
-  login          String?   @unique
-  password       String?
-  name           String?
-  surname        String?
-  email          String?   @unique
-  role           UserRole  @default(USER)
-  
-  // Поля для Партнера (Владельца кафе)
-  partnerCode    String?   @unique
+  id        String   @id @default(cuid())
+  login     String?  @unique
+  password  String?
+  name      String?
+  surname   String?
+  email     String?  @unique
+  role      UserRole @default(USER)
+
+  // --- СВЯЗИ ДЛЯ ПАРТНЕРА ---
   ownedEstablishments Establishment[] @relation("OwnerToEstablishment")
 
-  // Поля для Сотрудника/Связи с Партнером
-  referredByCode String?
-  partnerId      String?
-  parentPartner  User?     @relation("PartnerToStaff", fields: [partnerId], references: [id])
-  staffMembers   User[]    @relation("PartnerToStaff")
-
-  // СВЯЗЬ "МНОГИЕ КО МНОГИМ" С ЗАВЕДЕНИЯМИ
+  // --- СВЯЗИ ДЛЯ СОТРУДНИКА (МНОГИЕ-КО-МНОГИМ) ---
   establishments Establishment[] @relation("EstablishmentEmployees")
-  
-  // ХАССП: Журнал здоровья
-  healthLogs     HealthLog[] @relation("EmployeeHealthEntries") // Записи о здоровье этого юзера
-  performedLogs  HealthLog[] @relation("ManagerHealthChecks")  // Проверки, которые провел этот юзер (если он Manager/Partner)
 
-  // Подписки и системные данные
-  subscriptionStatus  String?   @default("none") 
+  // Иерархия партнеров и персонала
+  partnerId     String?
+  parentPartner User?   @relation("PartnerToStaff", fields: [partnerId], references: [id])
+  staffMembers  User[]  @relation("PartnerToStaff")
+
+  // --- ХАССП: Журналы ---
+  healthLogs    HealthLog[]      @relation("EmployeeHealthEntries")
+  performedLogs HealthLog[]      @relation("ManagerHealthChecks")
+  tempLogs      TemperatureLog[]
+
+  // --- СИСТЕМНЫЕ ПОЛЯ ---
+  subscriptionStatus  String?           @default("none")
   subscriptionPlanId  String?
   subscriptionPlan    SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
-  subscriptionExpires DateTime? 
-  paymentMethodId     String?   
-  
+  subscriptionExpires DateTime?
+  paymentMethodId     String?
+
   emailVerified     DateTime?
   image             String?
   phone             String?
@@ -67,65 +66,106 @@ model User {
   restaurantFormat  String?
   birthDate         String?
   socialLink        String?
-  
-  accounts          Account[]
-  sessions          Session[]
-  orders            Order[]
-  cart              Cart?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  orders   Order[]
+  cart     Cart?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([role])
 }
 
 model Establishment {
-  id        String   @id @default(uuid())
-  name      String   
-  city      String   
-  address   String   
-  
-  // Владелец заведения
-  ownerId   String   
-  owner     User     @relation("OwnerToEstablishment", fields: [ownerId], references: [id])
-  
-  // СВЯЗЬ "МНОГИЕ КО МНОГИМ" С СОТРУДНИКАМИ
-  employees User[]   @relation("EstablishmentEmployees")
+  id          String  @id @default(uuid())
+  name        String
+  city        String
+  address     String
+  inviteCode  String? @unique
 
-  // ХАССП: Журналы заведения
+  ownerId String
+  owner   User    @relation("OwnerToEstablishment", fields: [ownerId], references: [id])
+
+  employees User[] @relation("EstablishmentEmployees")
+
+  equipment  Equipment[]
   healthLogs HealthLog[]
-  
+  tempLogs   TemperatureLog[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 // --- ХАССП МОДЕЛИ ---
 
-model HealthLog {
-  id              String   @id @default(uuid())
-  date            DateTime @default(now()) // Дата записи
+model Equipment {
+  id      String  @id @default(uuid())
+  name    String
+  type    String?
+  zone    String? 
+  minTemp Float   @default(0)
+  maxTemp Float   @default(8)
 
-  // Кто проверял (Manager или Partner)
-  inspectorId     String
-  inspector       User     @relation("ManagerHealthChecks", fields: [inspectorId], references: [id])
-
-  // Кого проверяли (Сотрудник)
-  employeeId      String
-  employee        User     @relation("EmployeeHealthEntries", fields: [employeeId], references: [id])
-
-  // В какой точке проводилась проверка
   establishmentId String
   establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
 
-  // Данные проверки (Стандарты ХАССП)
-  hasPustules     Boolean  @default(false) // Гнойничковые заболевания (false = нет, всё ок)
-  hasInfections   Boolean  @default(false) // Признаки инфекционных заболеваний
-  isFamilyHealthy Boolean  @default(true)  // Здоровье членов семьи (true = всё ок)
-  temperature     Float?                   // Температура тела (напр. 36.6)
-  
-  comment         String?  // Дополнительный комментарий
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  tempLogs TemperatureLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([establishmentId])
+}
+
+model TemperatureLog {
+  id    String   @id @default(uuid())
+  date  DateTime @default(now())
+  value String   // Изменено на String для удобства ввода из формы
+  shift Int      @default(0) // 0 - Утро, 1 - Вечер
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+
+  establishmentId String
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  comment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([equipmentId, date, shift]) // Уникальный ключ для предотвращения дублей
+  @@index([establishmentId])
+  @@index([equipmentId])
+  @@index([date])
+}
+
+model HealthLog {
+  id   String   @id @default(uuid())
+  date DateTime @default(now())
+
+  inspectorId String
+  inspector   User   @relation("ManagerHealthChecks", fields: [inspectorId], references: [id])
+
+  employeeId String
+  employee   User   @relation("EmployeeHealthEntries", fields: [employeeId], references: [id])
+
+  establishmentId String
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+
+  hasPustules     Boolean @default(false)
+  hasInfections   Boolean @default(false)
+  isFamilyHealthy Boolean @default(true)
+  temperature     Float?
+
+  comment String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([establishmentId])
   @@index([date])
@@ -154,31 +194,31 @@ model Tag {
 }
 
 model Product {
-  id                String        @id @default(uuid())
+  id                String  @id @default(uuid())
   title             String
   shortDescription  String?
-  description       String        @db.Text
+  description       String  @db.Text
   price             Int
-  
-  published         Boolean       @default(true)
-  requirements      Json?         @default("[]")
 
-  typeId            String?
-  productType       ProductType? @relation(fields: [typeId], references: [id])
-  tags              Tag[]
-  materials         Material[]
-  cartItems         CartItem[]
-  orderItems        OrderItem[]
+  published    Boolean @default(true)
+  requirements Json?   @default("[]")
 
-  badgeText         String?
-  badgeColor        String?      @default("neutral")
-  bgColor           String?      @default("#F3F4F6")
-  imageUrl          String?      @db.Text
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  typeId      String?
+  productType ProductType? @relation(fields: [typeId], references: [id])
+  tags        Tag[]
+  materials   Material[]
+  cartItems   CartItem[]
+  orderItems  OrderItem[]
 
-  categoryId        String?
-  category          Category?    @relation(fields: [categoryId], references: [id])
+  badgeText  String?
+  badgeColor String? @default("neutral")
+  bgColor    String? @default("#F3F4F6")
+  imageUrl   String? @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
 }
 
 model Material {
@@ -192,30 +232,30 @@ model Material {
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  status      OrderStatus @default(NEW)
-  isPaid      Boolean     @default(false)
-  amount      Int         
-  
-  userEmail   String?
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id])
-  
-  items       OrderItem[]
+  id        String      @id @default(uuid())
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  status    OrderStatus @default(NEW)
+  isPaid    Boolean     @default(false)
+  amount    Int
+
+  userEmail String?
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id])
+
+  items OrderItem[]
 }
 
 model OrderItem {
-  id              String   @id @default(uuid())
-  orderId         String
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  productId       String
-  product         Product  @relation(fields: [productId], references: [id])
-  
-  priceAtPurchase Int      
-  answers         Json?    
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  priceAtPurchase Int
+  answers         Json?
 }
 
 model Cart {
@@ -233,53 +273,53 @@ model CartItem {
   cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  answers   Json?    
+
+  answers Json?
 
   createdAt DateTime @default(now())
   @@unique([cartId, productId])
 }
 
 model SubscriptionPlan {
-  id           String   @id @default(uuid())
-  name         String   @unique
-  description  String?  @db.Text
-  badgeText    String?  
-  features     String[] 
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?  @db.Text
+  badgeText   String?
+  features    String[]
 
-  priceMonth   Int      @default(0)
-  price3Month  Int      @default(0)
-  price6Month  Int      @default(0)
-  priceYear    Int      @default(0)
-  
+  priceMonth  Int @default(0)
+  price3Month Int @default(0)
+  price6Month Int @default(0)
+  priceYear   Int @default(0)
+
   canAccessMarketplace Boolean @default(true)
   canCreateOrders      Boolean @default(true)
   hasPrioritySupport   Boolean @default(false)
   hasAnalytics         Boolean @default(false)
-  
-  isActive     Boolean  @default(true)
-  order        Int      @default(0)
-  
-  users        User[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  isActive Boolean @default(true)
+  order    Int     @default(0)
+
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
   refresh_token_expires_in Int?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
 
@@ -310,37 +350,37 @@ model Banner {
 
 model MenuItem {
   id        String     @id @default(uuid())
-  title     String     
-  href      String?    
-  order     Int        @default(0)    
-  isAdmin   Boolean    @default(false)  
-  isVisible Boolean    @default(true)   
-  
-  parentId  String?
-  parent    MenuItem?  @relation("SubMenuItems", fields: [parentId], references: [id], onDelete: Cascade)
-  children  MenuItem[] @relation("SubMenuItems")
+  title     String
+  href      String?
+  order     Int        @default(0)
+  isAdmin   Boolean    @default(false)
+  isVisible Boolean    @default(true)
 
-  createdAt DateTime   @default(now())
+  parentId String?
+  parent   MenuItem?  @relation("SubMenuItems", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[] @relation("SubMenuItems")
+
+  createdAt DateTime @default(now())
 }
 
 model Direction {
   id           String   @id @default(uuid())
-  title        String   
-  subtitle     String?  
+  title        String
+  subtitle     String?
   description  String?  @db.Text
-  href         String   
-  isComingSoon Boolean  @default(false) 
-  
-  imageUrl     String?  @db.Text
-  iconName     String?  
-  
-  badge        String?  @default("Open") 
-  activeColor String?  @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
-  bgColor      String?  @default("#F8FAFC")
-  
-  order         Int      @default(0)
-  
-  isVisible    Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  href         String
+  isComingSoon Boolean  @default(false)
+
+  imageUrl String? @db.Text
+  iconName String?
+
+  badge       String? @default("Open")
+  activeColor String? @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
+  bgColor     String? @default("#F8FAFC")
+
+  order Int @default(0)
+
+  isVisible Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

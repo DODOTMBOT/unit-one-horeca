@@ -2,6 +2,18 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
+import { nanoid } from "nanoid"; // Если nanoid не установлен, можно использовать Math.random().toString(36)
+
+// Функция для генерации красивого читаемого кода
+function generateInviteCode() {
+  // Генерируем 7 символов в верхнем регистре (без путающих букв O/0, I/1)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let result = "";
+  for (let i = 0; i < 7; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
 
 // Создание нового заведения
 export async function POST(req: Request) {
@@ -19,12 +31,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Заполните все обязательные поля" }, { status: 400 });
     }
 
+    // Генерируем уникальный код приглашения
+    const inviteCode = generateInviteCode();
+
     const establishment = await prisma.establishment.create({
       data: {
         name,
         city,
         address,
-        ownerId: session.user.id, // Привязка к ID текущего пользователя
+        inviteCode, // Теперь код сохраняется в базу
+        ownerId: session.user.id,
       },
     });
 
@@ -53,6 +69,7 @@ export async function GET() {
 
     return NextResponse.json(establishments);
   } catch (error) {
+    console.error("ESTABLISHMENT_GET_ERROR", error);
     return NextResponse.json({ error: "Ошибка при получении данных" }, { status: 500 });
   }
 }

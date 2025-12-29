@@ -11,12 +11,15 @@ export async function GET(req: Request) {
     if (!establishmentId) return NextResponse.json([], { status: 400 });
 
     const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
     const logs = await prisma.healthLog.findMany({
       where: {
         establishmentId,
-        date: { gte: startDate, lte: endDate }
+        date: {
+          gte: startDate,
+          lte: endDate
+        }
       },
       select: {
         employeeId: true,
@@ -32,11 +35,12 @@ export async function GET(req: Request) {
       employeeId: log.employeeId,
       date: log.date,
       comment: log.comment,
-      inspectorSurname: log.inspector?.surname || ""
+      inspectorSurname: log.inspector?.surname || "Менеджер"
     }));
 
     return NextResponse.json(formattedLogs);
   } catch (error) {
+    console.error("MONTHLY_HEALTH_ERROR:", error);
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }

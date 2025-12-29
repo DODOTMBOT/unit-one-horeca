@@ -34,9 +34,11 @@ export default async function ProfilePage() {
         },
         orderBy: { createdAt: 'desc' }
       },
-      // Подгружаем заведения
+      // ИСПРАВЛЕНО: Теперь используем establishments (массив), так как связь многие-ко-многим
       establishments: true, 
-      // Подгружаем партнера, к которому привязан сотрудник, чтобы вывести его имя
+      // Подгружаем заведения, которыми владеет партнер
+      ownedEstablishments: true,
+      // Подгружаем партнера, к которому привязан сотрудник
       parentPartner: true,
     }
   });
@@ -80,7 +82,8 @@ export default async function ProfilePage() {
 
         {/* ОСНОВНОЙ КОНТЕНТ */}
         <main className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-           <ProfileDashboard user={user} orders={user.orders as any} />
+           {/* Передаем обновленного пользователя в дашборд */}
+           <ProfileDashboard user={user as any} orders={user.orders as any} />
         </main>
 
         <footer className="mt-12 text-center">

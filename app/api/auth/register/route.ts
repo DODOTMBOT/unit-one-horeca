@@ -2,20 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 
-// Функция генерации 7-значного кода для Партнера
-function generatePartnerCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < 7; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { login, name, surname, email, password, roleType, partnerByCode } = body;
+    const { login, name, surname, email, password, roleType, inviteCode } = body;
 
     if (!login || !email || !password || !roleType) {
       return NextResponse.json({ error: "Заполните все обязательные поля" }, { status: 400 });
@@ -35,7 +25,8 @@ export async function POST(req: Request) {
     // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    let userData: any = {
+    // Базовые данные пользователя
+    let data: any = {
       login,
       name,
       surname,
@@ -44,30 +35,38 @@ export async function POST(req: Request) {
     };
 
     if (roleType === "partner") {
-      // Логика для Владельца кафе
-      userData.role = "PARTNER";
-      userData.partnerCode = generatePartnerCode();
+      // Логика для Владельца кафе (Партнера)
+      data.role = "PARTNER";
     } else {
       // Логика для Сотрудника
-      userData.role = "USER";
-      userData.referredByCode = partnerByCode?.toUpperCase();
+      data.role = "USER";
 
-      // Ищем партнера, чтобы сразу установить связь в БД
-      if (partnerByCode) {
-        const partner = await prisma.user.findUnique({
-          where: { partnerCode: partnerByCode.toUpperCase() }
-        });
-        
-        if (partner) {
-          userData.partnerId = partner.id;
-        } else {
-          return NextResponse.json({ error: "Код партнера не найден" }, { status: 400 });
-        }
+      // Ищем заведение по коду приглашения
+      if (!inviteCode) {
+        return NextResponse.json({ error: "Код заведения обязателен для сотрудника" }, { status: 400 });
       }
+
+      const establishment = await prisma.establishment.findUnique({
+        where: { inviteCode: inviteCode.toUpperCase() },
+        select: { id: true, ownerId: true }
+      });
+      
+      if (!establishment) {
+        return NextResponse.json({ error: "Код заведения не найден. Проверьте правильность ввода." }, { status: 400 });
+      }
+
+      // Настройка связей для Many-to-Many
+      // Поле establishmentId удалено, используем establishments.connect
+      data.establishments = {
+        connect: { id: establishment.id }
+      };
+      
+      // Привязываем сотрудника к родителю-партнеру
+      data.partnerId = establishment.ownerId; 
     }
 
     const newUser = await prisma.user.create({
-      data: userData
+      data: data
     });
 
     return NextResponse.json({ 

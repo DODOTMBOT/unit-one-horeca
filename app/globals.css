@@ -21,7 +21,8 @@ body {
   min-width: 100% !important;
   max-width: none !important;
   overflow-x: hidden;
-  background-color: #f8f9fc; /* Чуть более «айтишный» фон для админки */
+  /* ИСПРАВЛЕНО: Установлен чистый белый фон */
+  background-color: #ffffff !important; 
   color: var(--foreground);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
@@ -32,15 +33,16 @@ main {
   max-width: none !important;
   margin: 0 !important;
   padding: 0 !important;
+  background-color: #ffffff !important;
 }
 
 @layer utilities {
   /* Эффект стеклянного острова для шапки */
   .floating-island {
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.8); /* Чуть плотнее, чтобы не теряться на белом */
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    border: 1px solid var(--border-slate); /* Более четкая граница на белом фоне */
     box-shadow: 
       0 4px 12px rgba(0, 0, 0, 0.02),
       0 20px 40px rgba(30, 27, 75, 0.05);
@@ -49,18 +51,15 @@ main {
 
   /* Стеклянная панель для карточек в админке */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.7);
+    background: #ffffff; /* На белом фоне лучше использовать сплошной цвет для чистоты */
+    border: 1px solid var(--border-slate);
     box-shadow: 0 8px 32px -4px rgba(30, 27, 75, 0.03);
   }
 
   /* Кастомный инпут (стиль Apple/SaaS) */
   .glass-input {
-    background: rgba(255, 255, 255, 0.5);
-    backdrop-filter: blur(8px);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    background: #f8f9fc; /* Оставляем легкий оттенок только для инпутов, чтобы выделить их */
+    border: 2px solid transparent;
     transition: all 0.3s ease;
   }
   .glass-input:focus {
