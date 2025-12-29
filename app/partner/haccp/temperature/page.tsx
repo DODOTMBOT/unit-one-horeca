@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { 
-  ChevronLeft, ChevronRight, Home, Search, Thermometer, ArrowRight
+  ChevronLeft, ChevronRight, Home, Search, Thermometer, ArrowRight, AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -26,9 +26,18 @@ export default function PartnerHACCPTemperatureListPage({ searchParams: searchPa
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch(`/api/partner/haccp/summary?month=${currentMonth}&year=${currentYear}`, {
-          cache: 'no-store'
-        });
+        /**
+         * Передаем параметр type=temperature. 
+         * Бэкенд в эндпоинте /api/partner/haccp/summary должен проверить:
+         * 1. Список оборудования (Equipment) в заведении.
+         * 2. Наличие записей в TemperatureLog для каждого оборудования за текущий день (утро/вечер).
+         * 3. Если хоть один прибор не заполнен в одну из смен — день считается пропущенным.
+         */
+        const res = await fetch(
+          `/api/partner/haccp/summary?month=${currentMonth}&year=${currentYear}&type=temperature&t=${Date.now()}`, 
+          { cache: 'no-store' }
+        );
+        
         if (res.ok) {
           const data = await res.json();
           setEstablishments(data);
@@ -100,53 +109,64 @@ export default function PartnerHACCPTemperatureListPage({ searchParams: searchPa
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-4">
               <div className="w-8 h-8 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Загрузка сети...</p>
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Загрузка данных мониторинга...</p>
             </div>
           ) : filteredEst.length > 0 ? (
-            filteredEst.map((est) => (
-              <Link 
-                key={est.id} 
-                href={`/partner/establishments/${est.id}/temperature`}
-                className="group bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:border-indigo-200 hover:shadow-md transition-all flex items-center justify-between"
-              >
-                <div className="flex items-center gap-6">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${est.isFilledToday ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
-                    <Thermometer size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors leading-none mb-2">
-                      {est.name}
-                    </h3>
-                    <div className="flex items-center gap-3">
-                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{est.city}</span>
-                       <span className="w-1 h-1 bg-slate-200 rounded-full" />
-                       <span className={`text-[9px] font-black uppercase ${est.isFilledToday ? 'text-emerald-500' : 'text-rose-500'}`}>
-                         {est.isFilledToday ? 'Норма зафиксирована' : 'Требует внимания'}
-                       </span>
+            filteredEst.map((est) => {
+              // Важно: на бэкенде массив facilitySkipDays должен содержать только те дни, 
+              // где НЕ ВСЕ приборы были заполнены в ОБЕ смены.
+              const skipDays = est.facilitySkipDays || [];
+              const hasSkips = skipDays.length > 0;
+              
+              return (
+                <Link 
+                  key={est.id} 
+                  href={`/partner/establishments/${est.id}/temperature`}
+                  className="group bg-white border border-slate-100 p-6 rounded-[2rem] shadow-sm hover:border-indigo-200 hover:shadow-md transition-all flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-6">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors ${!hasSkips ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                      <Thermometer size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors leading-none mb-2">
+                        {est.name}
+                      </h3>
+                      <div className="flex items-center gap-3">
+                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{est.city}</span>
+                         <span className="w-1 h-1 bg-slate-200 rounded-full" />
+                         <span className={`text-[9px] font-black uppercase flex items-center gap-1 ${!hasSkips ? 'text-emerald-500' : 'text-rose-500'}`}>
+                           {!hasSkips ? (
+                             <>Мониторинг: ОК</>
+                           ) : (
+                             <><AlertCircle size={10}/> Требуется заполнение</>
+                           )}
+                         </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-4">
-                   <div className="hidden sm:flex flex-col items-end">
-                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Пропуски мониторинга</p>
-                      <div className="flex gap-1">
-                        {est.facilitySkipDays?.length > 0 ? (
-                          est.facilitySkipDays.slice(0, 5).map((d: any) => (
-                            <span key={d} className="w-5 h-5 flex items-center justify-center bg-rose-50 text-rose-600 rounded-md text-[8px] font-black">{d}</span>
-                          ))
-                        ) : (
-                          <span className="text-[9px] font-black text-emerald-500 uppercase italic">Нарушений нет</span>
-                        )}
-                        {est.facilitySkipDays?.length > 5 && <span className="text-[8px] font-black text-slate-300">...</span>}
-                      </div>
-                   </div>
-                   <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                     <ArrowRight size={18} />
-                   </div>
-                </div>
-              </Link>
-            ))
+                  <div className="flex items-center gap-4">
+                     <div className="hidden sm:flex flex-col items-end">
+                        <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-1">Пропущенные дни</p>
+                        <div className="flex gap-1">
+                          {hasSkips ? (
+                            skipDays.slice(0, 6).map((d: any) => (
+                              <span key={d} className="w-5 h-5 flex items-center justify-center bg-rose-50 text-rose-600 rounded-md text-[8px] font-black">{d}</span>
+                            ))
+                          ) : (
+                            <span className="text-[9px] font-black text-emerald-500 uppercase italic tracking-tighter">Нарушений нет</span>
+                          )}
+                          {skipDays.length > 6 && <span className="text-[8px] font-black text-slate-300">...</span>}
+                        </div>
+                     </div>
+                     <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                       <ArrowRight size={18} />
+                     </div>
+                  </div>
+                </Link>
+              );
+            })
           ) : (
             <div className="bg-white border border-slate-100 border-dashed rounded-[2rem] p-20 text-center">
               <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest">Заведения не найдены</p>
