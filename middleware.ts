@@ -4,15 +4,41 @@ import { NextResponse } from "next/server"
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
-    const isAdmin = token?.role === "ADMIN";
     const { pathname } = req.nextUrl;
 
-    // 1. Защита админки
-    if (pathname.startsWith("/admin") && !isAdmin) {
-      return NextResponse.redirect(new URL("/", req.url));
+    // 1. Исключаем саму страницу "Доступ запрещен" из проверок, чтобы не войти в бесконечный цикл
+    if (pathname === "/denied") {
+      return NextResponse.next();
     }
 
-    // 2. Создаем ответ и прокидываем pathname в заголовки
+    // 2. Определяем супер-права
+    const isSuperAdmin = 
+      token?.role === "ADMIN" || 
+      token?.role === "OWNER" || 
+      token?.email === process.env.SUPER_ADMIN_EMAIL;
+
+    // Если супер-админ — разрешаем всё сразу
+    if (isSuperAdmin) return NextResponse.next();
+
+    // 3. СТРОГАЯ ПРОВЕРКА ПУТЕЙ ДЛЯ ОСТАЛЬНЫХ РОЛЕЙ
+    const userPermissions = (token?.permissions as string[]) || [];
+
+    // Защищаем разделы /admin и /partner
+    if (pathname.startsWith("/admin") || pathname.startsWith("/partner")) {
+      
+      // Проверяем прямое наличие пути в массиве разрешений
+      const hasDirectAccess = userPermissions.includes(pathname);
+
+      if (!hasDirectAccess) {
+        // Вместо главной страницы отправляем на специальную страницу с ошибкой
+        const url = new URL("/denied", req.url);
+        // Добавляем в URL информацию, куда именно не пустили (для отладки или красоты)
+        url.searchParams.set("from", pathname); 
+        return NextResponse.redirect(url);
+      }
+    }
+
+    // 4. Формируем стандартный ответ с пробросом pathname в заголовки
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', pathname);
 
@@ -22,8 +48,8 @@ export default withAuth(
       },
     });
 
-    // 3. Отключаем кэширование для динамических зон
-    if (pathname.startsWith("/profile") || pathname.startsWith("/admin")) {
+    // 5. Отключаем кэширование для приватных зон
+    if (pathname.startsWith("/profile") || pathname.startsWith("/admin") || pathname.startsWith("/partner")) {
       response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
       response.headers.set('Pragma', 'no-cache');
       response.headers.set('Expires', '0');
@@ -33,18 +59,16 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token, req }) => {
-        // Публичные страницы не требуют токена (например, главная)
-        // Если путь не в матчере защиты, возвращаем true
-        return !!token || !req.nextUrl.pathname.startsWith("/admin");
-      },
+      // Пользователь должен быть авторизован для доступа к любому маршруту, кроме логина
+      authorized: ({ token }) => !!token,
     },
-    pages: { signIn: "/auth/signin" }, // убедитесь, что путь к вашей странице входа верный
+    pages: { 
+      signIn: "/auth/login",
+    }, 
   }
 )
 
 export const config = { 
-  // ВАЖНО: расширяем matcher, чтобы middleware видел все переходы для подсветки меню
   matcher: [
     /*
      * Match all request paths except for the ones starting with:

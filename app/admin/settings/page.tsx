@@ -1,53 +1,58 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { LogOut, Lock, Loader2 } from "lucide-react";
+import { LogOut, Lock, Loader2, ChevronLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function AdminHub() {
+export default function SettingsHub() {
   const { data: session, status } = useSession();
 
   const sections = [
+    {
+      title: "Экосистемы",
+      description: "Настройка экосистем и направлений платформы.",
+      links: [
+        { name: "Экосистемы", href: "/admin/settings/directions" },
+      ]
+    },
+    {
+      title: "Навигация",
+      description: "Настройка главного и второстепенного меню.",
+      links: [
+        { name: "Навигация", href: "/admin/settings/navigation" },
+      ]
+    },
+    {
+      title: "Роли и доступы",
+      description: "Управление ролями и правами пользователей.",
+      links: [
+        { name: "Роли и доступы", href: "/admin/settings/roles" },
+      ]
+    },
 
         {
-      title: "Настройка сайта",
-      description: "Настройки сайта, контент и структура платформы.",
+      title: "Пользователи",
+      description: "Список пользователей.",
       links: [
-        { name: "Настройка сайта", href: "/admin/settings" },
+        { name: "Пользователи", href: "/admin/users/list" },
       ]
     },
 
     {
-      title: "Маркетплейс решений",
-      description: "Управление продажами и каталогом: товары, заказы и категории.",
+      title: "Промо-материалы",
+      description: "Управление баннерами и акциями на главной.",
       links: [
-        { name: "Маркетплейс решений", href: "/admin/products" },
+        { name: "Промо-баннеры", href: "/admin/promos" },
       ]
-
-    },
-        {
-      title: "Журналы ХАССП",
-      description: "Управление журналами ХАССП для клиентов.",
-      links: [
-        { name: "Журналы ХАССП", href: "/admin/haccp" },
-      ]
-    },
-
+    }
   ];
 
-  // 1. СТРОГАЯ ФИЛЬТРАЦИЯ
   const isSuperAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "OWNER";
   const userPermissions = session?.user?.permissions || [];
 
   const accessibleLinks = sections.flatMap(section => 
     section.links
-      .filter(link => {
-        // Если это главный админ — показываем всё
-        if (isSuperAdmin) return true;
-        
-        // Для остальных: показываем плитку ТОЛЬКО если этот путь ЕСТЬ в базе прав
-        return userPermissions.includes(link.href);
-      })
+      .filter(link => isSuperAdmin || userPermissions.includes(link.href))
       .map(link => ({ ...link, sectionDescription: section.description }))
   );
 
@@ -59,7 +64,6 @@ export default function AdminHub() {
     );
   }
 
-  // Если прав нет ни на одну конкретную плитку
   if (accessibleLinks.length === 0) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
@@ -68,7 +72,7 @@ export default function AdminHub() {
         </div>
         <h1 className="text-2xl font-black uppercase tracking-tight text-slate-800 mb-2">Доступы не настроены</h1>
         <p className="text-slate-400 text-sm max-w-sm mb-8 font-medium">
-          Для роли <span className="text-indigo-600 font-bold">{session?.user?.roleName}</span> не активированы конкретные модули. Обратитесь к администратору.
+          Для роли <span className="text-indigo-600 font-bold">{session?.user?.roleName}</span> не активированы модули настроек.
         </p>
         <Link href="/" className="px-8 py-4 bg-[#1e1b4b] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all">
           Вернуться на главную
@@ -81,14 +85,23 @@ export default function AdminHub() {
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
       <div className="max-w-[1400px] mx-auto">
         
-        {/* HEADER */}
+        {/* HEADER С КНОПКОЙ НАЗАД */}
         <div className="flex items-center justify-between mb-20">
-          <div className="flex-1 hidden md:flex" />
+          <div className="flex-1 flex justify-start">
+            <Link 
+              href="/admin" 
+              className="group flex h-12 w-12 items-center justify-center rounded-[1.5rem] bg-white border border-slate-100 transition-colors hover:bg-slate-50"
+            >
+              <ChevronLeft size={20} className="text-slate-600 group-hover:text-[#7171a7]" />
+            </Link>
+          </div>
+
           <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
             <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
-              Панель управления
+              Настройки сайта
             </h1>
           </div>
+
           <div className="flex-1 flex items-center justify-end gap-2">
             <Link href="/" className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] hover:bg-slate-50 transition-colors">
               <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Сайт</p>
@@ -99,11 +112,11 @@ export default function AdminHub() {
           </div>
         </div>
 
-        {/* GRID: ТЕПЕРЬ С ЛАВАНДОВОЙ ОБВОДКОЙ ПРИ НАВЕДЕНИИ */}
+        {/* GRID: 4 КОЛОНКИ В РЯД, МИНИМАЛИЗМ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {accessibleLinks.map((link, idx) => (
             <Link key={idx} href={link.href} className="no-underline">
-              <div className="group relative h-full min-h-[180px] p-8 rounded-[2.5rem] border border-slate-100 bg-white hover:border-[#7171a7] transition-colors duration-300">
+              <div className="group relative h-full min-h-[180px] p-8 rounded-[2.5rem] border border-slate-100 bg-white transition-all duration-300 hover:border-[#7171a7]">
                 <h3 className="text-lg font-black leading-tight mb-3 tracking-tight text-[#1e1b4b]">
                   {link.name}
                 </h3>
@@ -121,7 +134,7 @@ export default function AdminHub() {
           <div className="flex gap-4 items-center">
              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
              <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">
-               Доступы роли: {session?.user?.roleName}
+               Конфигурация системы: {session?.user?.roleName}
              </span>
           </div>
         </div>

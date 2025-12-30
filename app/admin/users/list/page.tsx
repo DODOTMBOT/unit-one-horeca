@@ -3,188 +3,288 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { 
   Loader2, Search, Mail, UserCircle, 
-  Calendar, Home, LogOut, Phone, Globe
+  Calendar, Home, LogOut, Phone, Globe, ShieldCheck, ChevronLeft,
+  Edit3, ArrowUpDown, User
 } from "lucide-react";
 import Link from "next/link";
 
+type SortConfig = {
+  key: string;
+  direction: 'asc' | 'desc';
+};
+
 export default function AdminUsersListPage() {
   const [users, setUsers] = useState<any[]>([]); 
+  const [roles, setRoles] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'createdAt', direction: 'desc' });
 
-  const fetchUsers = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/users");
-      if (res.ok) {
-        const data = await res.json();
-        // Забираем массив из ключа data.users, как настроено в API
-        setUsers(Array.isArray(data.users) ? data.users : []);
-        setStats(data.stats);
+      const [usersRes, rolesRes] = await Promise.all([
+        fetch("/api/admin/users"),
+        fetch("/api/admin/roles")
+      ]);
+
+      if (usersRes.ok && rolesRes.ok) {
+        const usersData = await usersRes.json();
+        const rolesData = await rolesRes.json();
+        setUsers(Array.isArray(usersData.users) ? usersData.users : []);
+        setStats(usersData.stats);
+        setRoles(rolesData);
       }
     } catch (err) {
-      console.error("Ошибка загрузки пользователей", err);
-      setUsers([]);
+      console.error("Ошибка загрузки", err);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchData();
+  }, [fetchData]);
 
-  // Фильтрация по поиску (имя, фамилия, email)
-  const filteredUsers = useMemo(() => {
-    return users.filter(u => 
+  const handleRoleChange = async (userId: string, newRoleId: string) => {
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, roleId: newRoleId }),
+      });
+
+      if (res.ok) {
+        setUsers(prev => prev.map(u => 
+          u.id === userId ? { ...u, roleId: newRoleId, newRole: roles.find(r => r.id === newRoleId) } : u
+        ));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const requestSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const processedUsers = useMemo(() => {
+    let filtered = users.filter(u => 
       `${u.name || ''} ${u.surname || ''}`.toLowerCase().includes(search.toLowerCase()) || 
       (u.email || '').toLowerCase().includes(search.toLowerCase())
     );
-  }, [users, search]);
+
+    return filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortConfig.key) {
+        case 'name': 
+          aValue = (a.name || '').toLowerCase();
+          bValue = (b.name || '').toLowerCase();
+          break;
+        case 'email':
+          aValue = a.email.toLowerCase();
+          bValue = b.email.toLowerCase();
+          break;
+        case 'role':
+          aValue = (a.newRole?.name || a.role || '').toLowerCase();
+          bValue = (b.newRole?.name || b.role || '').toLowerCase();
+          break;
+        case 'date':
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [users, search, sortConfig, roles]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12 pb-20">
       <div className="max-w-[1400px] mx-auto">
         
-        {/* HEADER BAR */}
-        <header className="flex items-center justify-between mb-20">
-          <div className="flex-1 flex justify-start">
-            <Link 
-              href="/partner" 
-              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50 flex items-center gap-3 group"
-            >
-              <Home size={16} className="text-slate-400" />
-              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Панель</p>
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-12">
+          <div className="flex-1">
+            {/* ИЗМЕНЕНО: Ссылка теперь ведет на настройки */}
+            <Link href="/admin/settings" className="group flex h-12 w-12 items-center justify-center rounded-[1.5rem] bg-white border border-slate-200 transition-colors hover:bg-slate-50">
+              <ChevronLeft size={20} className="text-slate-600 group-hover:text-[#7171a7]" />
             </Link>
           </div>
 
-          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem] hidden lg:block shadow-sm">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
-              Пользователи {stats?.totalUsers ? `(${stats.totalUsers})` : ''}
+          <div className="px-16 py-4 bg-white border border-slate-200 rounded-[1.5rem]">
+            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-[#1e1b4b] leading-none text-center">
+              Пользователи платформы
             </h1>
           </div>
 
-          <div className="flex-1 flex items-center justify-end gap-2">
-            <Link 
-              href="/" 
-              className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors"
-              title="Выйти"
-            >
+          <div className="flex-1 flex items-center justify-end gap-6">
+             <Link href="/admin/settings/roles" className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-[#7171a7] transition-colors flex items-center gap-2">
+                <ShieldCheck size={14}/> Роли
+             </Link>
+            <Link href="/" className="w-12 h-12 bg-white border border-slate-200 rounded-[1.5rem] flex items-center justify-center text-slate-500 hover:text-rose-500 transition-colors">
               <LogOut size={18} />
             </Link>
           </div>
-        </header>
+        </div>
 
-        {/* CONTROLS & DETAILED STATS */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-            <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+        {/* CONTROLS */}
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-6 mb-8">
+            <div className="relative w-full lg:w-[450px]">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
                 <input 
-                    placeholder="ПОИСК ПО ИМЕНИ ИЛИ EMAIL..." 
-                    className="pl-12 pr-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] text-[11px] font-bold uppercase tracking-wider outline-none focus:ring-2 focus:ring-indigo-500/10 w-full sm:w-[420px] transition-all"
+                    placeholder="ПОИСК ПО БАЗЕ..." 
+                    className="pl-14 pr-6 py-4 bg-white border border-slate-200 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest outline-none focus:border-[#7171a7] text-[#1e1b4b] placeholder:text-slate-500 w-full transition-all"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
             </div>
 
-            <div className="flex items-center gap-8 px-10 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
-                <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-rose-500 uppercase tracking-[0.2em] mb-1">Яндекс</span>
-                    <span className="text-xs font-black text-slate-800 leading-none">{stats?.yandexUsers || 0}</span>
+            <div className="flex items-center gap-10 px-10 py-4 bg-white border border-slate-200 rounded-[1.5rem]">
+                <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Yandex</span>
+                    <span className="text-xs font-black text-[#1e1b4b]">{stats?.yandexUsers || 0}</span>
                 </div>
-                <div className="w-[1px] h-6 bg-slate-100" />
-                <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-indigo-500 uppercase tracking-[0.2em] mb-1">Сайт</span>
-                    <span className="text-xs font-black text-slate-800 leading-none">{stats?.webUsers || 0}</span>
+                <div className="w-[1px] h-6 bg-slate-200" />
+                <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Web</span>
+                    <span className="text-xs font-black text-[#1e1b4b]">{stats?.webUsers || 0}</span>
                 </div>
-                <div className="w-[1px] h-6 bg-slate-100" />
-                <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-1">Админы</span>
-                    <span className="text-xs font-black text-indigo-600 leading-none">{stats?.totalAdmins || 0}</span>
+                <div className="w-[1px] h-6 bg-slate-200" />
+                <div className="flex flex-col items-center">
+                    <span className="text-[8px] font-black text-[#7171a7] uppercase tracking-widest mb-1">Admins</span>
+                    <span className="text-xs font-black text-[#7171a7]">{stats?.totalAdmins || 0}</span>
                 </div>
             </div>
         </div>
 
-        {/* USERS GRID */}
-        {loading ? (
-          <div className="py-24 flex flex-col items-center gap-4 text-slate-300">
-            <Loader2 className="animate-spin" size={32} />
-            <p className="text-[10px] font-black uppercase tracking-widest">Синхронизация...</p>
+        {/* TABLE */}
+        <div className="bg-white rounded-[2.5rem] border border-slate-200 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50/50">
+                  <th onClick={() => requestSort('name')} className="p-6 cursor-pointer hover:bg-slate-50 transition-colors pl-10">
+                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                        Пользователь <ArrowUpDown size={10} className={sortConfig.key === 'name' ? 'text-[#7171a7]' : 'text-slate-400'} />
+                    </div>
+                  </th>
+                  <th onClick={() => requestSort('email')} className="p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                        Контакты <ArrowUpDown size={10} className={sortConfig.key === 'email' ? 'text-[#7171a7]' : 'text-slate-400'} />
+                    </div>
+                  </th>
+                  <th onClick={() => requestSort('role')} className="p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                        Роль <ArrowUpDown size={10} className={sortConfig.key === 'role' ? 'text-[#7171a7]' : 'text-slate-400'} />
+                    </div>
+                  </th>
+                  <th onClick={() => requestSort('date')} className="p-6 cursor-pointer hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-2 text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+                        Регистрация <ArrowUpDown size={10} className={sortConfig.key === 'date' ? 'text-[#7171a7]' : 'text-slate-400'} />
+                    </div>
+                  </th>
+                  <th className="p-6 text-right text-[9px] font-black text-slate-600 uppercase tracking-[0.2em] pr-10">Действие</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {loading ? (
+                  <tr><td colSpan={5} className="p-20 text-center"><Loader2 className="animate-spin inline text-slate-500" size={32} /></td></tr>
+                ) : processedUsers.map((user) => {
+                    const isYandex = user.accounts?.some((acc: any) => acc.provider === 'yandex');
+                    const currentRoleName = user.newRole?.name || user.role;
+
+                    return (
+                      <tr key={user.id} className="group transition-all hover:bg-slate-50/60">
+                        <td className="p-5 pl-10">
+                          <Link href={`/profile/${user.id}`} className="flex items-center gap-4 group/user">
+                            <div className="relative h-11 w-11 flex-shrink-0 transition-transform group-hover/user:scale-105">
+                                <div className="h-full w-full rounded-2xl bg-white border border-slate-300 overflow-hidden flex items-center justify-center text-slate-400 group-hover/user:border-[#7171a7]/50 transition-colors">
+                                    {user.image ? <img src={user.image} alt="" className="w-full h-full object-cover" /> : <UserCircle size={24} />}
+                                </div>
+                                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center bg-white ${isYandex ? 'text-rose-600' : 'text-indigo-600'}`}>
+                                    {isYandex ? <span className="text-[7px] font-black">Y</span> : <Globe size={8} />}
+                                </div>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="text-[13px] font-black uppercase tracking-tight text-[#1e1b4b] group-hover/user:text-[#7171a7] transition-colors">
+                                    {user.name || 'Без'} {user.surname || ''}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase tracking-widest ${isYandex ? 'text-rose-600' : 'text-slate-500'}`}>
+                                    ID: {user.id.slice(-6).toUpperCase()}
+                                </span>
+                            </div>
+                          </Link>
+                        </td>
+
+                        <td className="p-5">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-bold lowercase text-[#1e1b4b] leading-none mb-1">{user.email}</span>
+                            {user.phone && <span className="text-[9px] font-black tracking-widest text-slate-600">{user.phone}</span>}
+                          </div>
+                        </td>
+
+                        <td className="p-5">
+                          <select 
+                            value={user.roleId || ""}
+                            onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                            className={`w-full max-w-[140px] appearance-none px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest outline-none border border-slate-300 cursor-pointer transition-all ${currentRoleName === 'ADMIN' || currentRoleName === 'OWNER' ? 'bg-[#1e1b4b] text-white' : 'bg-slate-50 text-slate-800 hover:bg-slate-100'}`}
+                          >
+                            <option value="" disabled>НЕТ РОЛИ</option>
+                            {roles.map((r: any) => (
+                              <option key={r.id} value={r.id} className="bg-white text-black">{r.name}</option>
+                            ))}
+                          </select>
+                        </td>
+
+                        <td className="p-5">
+                          <span className="text-[10px] font-black uppercase tracking-[0.1em] text-slate-600">
+                              {new Date(user.createdAt).toLocaleDateString('ru-RU')}
+                          </span>
+                        </td>
+
+                        <td className="p-5 text-right pr-10">
+                          <div className="flex justify-end gap-2 opacity-40 group-hover:opacity-100 transition-all">
+                            <Link href={`/profile/${user.id}`} title="Профиль">
+                                <button className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 hover:text-[#7171a7] hover:border-[#7171a7] transition-all">
+                                    <User size={16} />
+                                </button>
+                            </Link>
+                            <Link href={`/admin/users/edit/${user.id}`} title="Настройки">
+                                <button className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 hover:text-[#7171a7] hover:border-[#7171a7] transition-all">
+                                    <Edit3 size={16} />
+                                </button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                }
+              </tbody>
+            </table>
           </div>
-        ) : filteredUsers.length === 0 ? (
-          <div className="py-24 text-center bg-white rounded-[2rem] border-dashed border-2 border-slate-100">
-            <p className="text-[11px] font-black text-slate-300 uppercase tracking-widest">Пользователи не найдены</p>
+        </div>
+
+        {/* FOOTER */}
+        <div className="mt-12 flex justify-between items-center opacity-60">
+          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-[#1e1b4b]">Terminal v.2.4</p>
+          <div className="flex gap-4 items-center">
+             <div className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+             <span className="text-[8px] font-black uppercase tracking-widest text-emerald-700">Active Monitoring</span>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredUsers.map((user) => {
-              // Проверяем наличие Яндекс-провайдера в аккаунтах
-              const isYandex = user.accounts?.some((acc: any) => acc.provider === 'yandex');
-
-              return (
-                <div key={user.id} className="group bg-white p-8 rounded-[2rem] border border-slate-100 transition-all duration-300 flex flex-col justify-between h-[280px] hover:border-indigo-200">
-                  <div className="relative">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="relative">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50 transition-colors overflow-hidden border border-slate-50">
-                          {user.image ? (
-                            <img src={user.image} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <UserCircle size={24} />
-                          )}
-                        </div>
-                        
-                        {/* МАЛЕНЬКИЙ ИНДИКАТОР ИСТОЧНИКА НА ФОТО */}
-                        <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-lg border flex items-center justify-center bg-white shadow-sm ${isYandex ? 'border-rose-100 text-rose-500' : 'border-indigo-100 text-indigo-500'}`}>
-                           {isYandex ? <span className="text-[8px] font-black">Y</span> : <Globe size={10} />}
-                        </div>
-                      </div>
-
-                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${user.role === 'ADMIN' || user.role === 'PARTNER' ? 'bg-indigo-50 text-indigo-600' : 'bg-slate-50 text-slate-400'}`}>
-                          {user.role}
-                      </div>
-                    </div>
-                    
-                    <h3 className="text-[16px] font-black uppercase tracking-tight text-[#1e1b4b] mb-1 leading-tight line-clamp-1">
-                      {user.name} {user.surname}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 text-slate-400 truncate mb-1">
-                      <Mail size={12} className="shrink-0" />
-                      <span className="text-[11px] font-medium">{user.email}</span>
-                    </div>
-                    
-                    {user.phone && (
-                      <div className="flex items-center gap-2 text-slate-400 mb-2">
-                        <Phone size={12} className="shrink-0" />
-                        <span className="text-[10px] font-bold text-slate-400 tracking-wider">
-                            {user.phone}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* ТЕКСТОВАЯ МЕТКА ИСТОЧНИКА */}
-                    <div className="mt-3 flex items-center gap-2">
-                        <span className={`text-[8px] font-black uppercase tracking-[0.1em] px-2 py-0.5 rounded-md border ${isYandex ? 'border-rose-100 text-rose-400 bg-rose-50/30' : 'border-slate-100 text-slate-300 bg-slate-50/50'}`}>
-                            {isYandex ? 'Yandex ID' : 'Web Регистрация'}
-                        </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-auto pt-4 flex items-center justify-between border-t border-slate-50">
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <Calendar size={12} />
-                      <span className="text-[9px] font-black uppercase tracking-widest">
-                          {new Date(user.createdAt).toLocaleDateString('ru-RU')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

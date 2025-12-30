@@ -12,12 +12,22 @@ export default function UserNav() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
 
-  // Проверки ролей
-  const isAdmin = session?.user?.role === "ADMIN" || session?.user?.email === 'ar.em.v@yandex.ru';
+  // 1. ПРОВЕРКИ РОЛЕЙ
+  const isSuperAdmin = 
+    session?.user?.role === "ADMIN" || 
+    session?.user?.role === "OWNER" || 
+    session?.user?.email === 'ar.em.v@yandex.ru';
+
+  const hasAnyAdminAccess = session?.user?.permissions?.some((p: string) => 
+    p.startsWith("/admin")
+  );
+
+  const showAdminButton = isSuperAdmin || hasAnyAdminAccess;
   const isPartner = session?.user?.role === "PARTNER";
 
-  // Получаем количество заказов (только для админа)
-  const { data: countData } = useSWR(isAdmin ? "/api/admin/orders/count" : null, fetcher, {
+  const canSeeOrders = isSuperAdmin || session?.user?.permissions?.includes("/admin/orders");
+  
+  const { data: countData } = useSWR(canSeeOrders ? "/api/admin/orders/count" : null, fetcher, {
     refreshInterval: 30000, 
   });
 
@@ -28,14 +38,14 @@ export default function UserNav() {
   }, []);
 
   if (!mounted || status === "loading") {
-    return <div className="w-10 h-10 bg-slate-50 animate-pulse rounded-full" />;
+    return <div className="w-10 h-10 bg-white border border-slate-100 animate-pulse rounded-full" />;
   }
 
   if (status === "unauthenticated" || !session) {
     return (
       <Link 
         href="/api/auth/signin" 
-        className="px-6 py-2.5 bg-[#1e1b4b] text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:scale-105 transition-all shadow-lg shadow-indigo-900/20"
+        className="px-6 py-2.5 bg-[#1e1b4b] text-white text-[10px] font-black uppercase tracking-widest rounded-full hover:bg-[#7171a7] transition-all"
       >
         Войти
       </Link>
@@ -45,67 +55,67 @@ export default function UserNav() {
   return (
     <div className="flex items-center gap-2">
       
-      {/* Иконка ЗАКАЗЫ: видна только админу */}
-      {isAdmin && ordersCount > 0 && (
+      {/* Иконка ЗАКАЗЫ */}
+      {canSeeOrders && ordersCount > 0 && (
         <Link
-          href="/admin/orders/list"
+          href="/admin/orders"
           title="Новые заказы"
-          className="group relative flex h-10 w-10 items-center justify-center rounded-full border border-emerald-100 bg-emerald-50/50 text-emerald-600 transition-all hover:bg-emerald-500 hover:text-white shadow-sm"
+          className="group relative flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 transition-all hover:border-emerald-500 hover:text-emerald-500"
         >
-          <ShoppingBag size={18} strokeWidth={2.5} className={ordersCount > 0 ? "animate-pulse" : ""} />
-          <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-emerald-500 text-[9px] font-black text-white shadow-sm transition-transform group-hover:scale-110">
+          <ShoppingBag size={18} strokeWidth={2} className={ordersCount > 0 ? "animate-pulse" : ""} />
+          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[8px] font-black text-white">
             {ordersCount > 9 ? '9+' : ordersCount}
           </span>
         </Link>
       )}
 
-      {/* КНОПКА ПАРТНЕРА: Теперь в полном виде с текстом */}
+      {/* КНОПКА ПАРТНЕРА */}
       {isPartner && (
         <Link 
           href="/partner" 
-          className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-indigo-50/50 border border-indigo-100 rounded-full shadow-sm hover:shadow-md hover:bg-indigo-600 hover:text-white transition-all duration-300"
+          className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-white border border-slate-100 rounded-full hover:border-indigo-400 transition-all"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-indigo-600 group-hover:bg-white group-hover:scale-110 transition-all">
-            <LayoutDashboard size={14} strokeWidth={2.5} />
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-400 group-hover:text-indigo-500 transition-all">
+            <LayoutDashboard size={14} strokeWidth={2} />
           </div>
-          <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-indigo-600 group-hover:text-white">
-            Панель партнёра
+          <span className="hidden sm:block text-[9px] font-black uppercase tracking-widest text-[#1e1b4b]">
+            Партнёр
           </span>
         </Link>
       )}
 
-      {/* Иконка АДМИН: компактный круг */}
-      {isAdmin && (
+      {/* Иконка АДМИН */}
+      {showAdminButton && (
         <Link 
           href="/admin" 
           title="Панель администратора"
-          className="flex h-10 w-10 items-center justify-center rounded-full border border-red-100 bg-red-50/50 text-red-500 transition-all hover:bg-red-500 hover:text-white shadow-sm"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-100 bg-white text-slate-400 transition-all hover:border-[#7171a7] hover:text-[#7171a7]"
         >
-          <ShieldCheck size={18} strokeWidth={2.5} />
+          <ShieldCheck size={18} strokeWidth={2} />
         </Link>
       )}
 
       {/* Мой профиль */}
       <Link 
         href="/profile" 
-        className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-white border border-slate-100 rounded-full shadow-sm hover:shadow-md hover:border-indigo-100 transition-all duration-300"
+        className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-white border border-slate-100 rounded-full transition-all hover:border-[#7171a7]"
       >
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-50 text-[#1e1b4b] group-hover:bg-indigo-500 group-hover:text-white transition-colors">
-          <User size={14} strokeWidth={2.5} />
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-400 group-hover:text-[#7171a7] transition-colors">
+          <User size={14} strokeWidth={2} />
         </div>
-        <span className="hidden sm:block text-[10px] font-black uppercase tracking-widest text-[#1e1b4b]">
+        <span className="hidden sm:block text-[9px] font-black uppercase tracking-widest text-[#1e1b4b]">
           Профиль
         </span>
-        <ChevronRight size={10} className="text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
+        <ChevronRight size={10} className="text-slate-300 group-hover:text-[#7171a7] group-hover:translate-x-0.5 transition-all" />
       </Link>
 
       {/* Кнопка ВЫХОД */}
       <button 
         onClick={() => signOut()}
         title="Выйти"
-        className="flex h-10 w-10 items-center justify-center text-slate-300 hover:text-red-500 transition-colors"
+        className="flex h-10 w-10 items-center justify-center text-slate-200 hover:text-rose-500 transition-colors"
       >
-        <LogOut size={18} strokeWidth={2.5} />
+        <LogOut size={18} strokeWidth={2} />
       </button>
     </div>
   );

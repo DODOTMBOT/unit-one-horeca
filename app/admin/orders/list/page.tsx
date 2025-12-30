@@ -16,36 +16,36 @@ import {
   LayoutGrid,
   PlayCircle,
   ChevronLeft,
-  ShoppingBag
+  ShoppingBag,
+  Loader2
 } from "lucide-react";
 
-// Типы для фронтенда
 type OrderStatus = 'new' | 'processing' | 'completed';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
   const [filter, setFilter] = useState<'all' | 'materials' | 'requirements' | 'processing' | 'completed'>('all');
+  const [isLoading, setIsLoading] = useState(true);
   
   const { mutate } = useSWRConfig(); 
 
-  // Загрузка заказов и приведение статусов к единому виду
   const fetchOrders = async () => {
+    setIsLoading(true);
     try {
       const data = await getAdminOrders();
       const enrichedData = data.map((order: any) => {
         let currentStatus: OrderStatus = 'new';
-        
-        // Строгое соответствие Enum из БД
         if (order.status === 'PROCESSING') currentStatus = 'processing';
         else if (order.status === 'COMPLETED') currentStatus = 'completed';
-        else currentStatus = 'new'; // Сюда упадут NEW, PAID, PENDING
-        
+        else currentStatus = 'new';
         return { ...order, status: currentStatus };
       });
       setOrders(enrichedData);
     } catch (error) {
       console.error("Fetch error:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,35 +55,20 @@ export default function AdminOrdersPage() {
 
   const updateOrderStatus = async (orderId: string, nextStep: OrderStatus) => {
     try {
-      // 1. Оптимистичное обновление (для скорости интерфейса)
       setOrders(prev => prev.map(order => 
         order.id === orderId ? { ...order, status: nextStep } : order
       ));
-
-      // 2. Сопоставление для БД (статус должен быть в UPPERCASE для Prisma Enum)
       const dbStatus = nextStep === 'completed' ? 'COMPLETED' : 'PROCESSING';
-
-      // 3. Запрос к API
       const response = await fetch("/api/admin/orders/status", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          orderId, 
-          status: dbStatus 
-        })
+        body: JSON.stringify({ orderId, status: dbStatus })
       });
-
       if (!response.ok) throw new Error("Status update failed");
-
-      // 4. СИНХРОНИЗАЦИЯ: Обновляем бейдж в хедере по ключу API
       await mutate("/api/admin/orders/count");
-      
-      // 5. Перестраховка: обновляем локальные данные из БД
       fetchOrders();
-
     } catch (error) {
-      console.error("Update error:", error);
-      fetchOrders(); // Откат изменений при ошибке
+      fetchOrders();
     }
   };
 
@@ -103,146 +88,179 @@ export default function AdminOrdersPage() {
   });
 
   const tabs = [
-    { id: 'all', label: 'Все', icon: LayoutGrid, color: 'bg-[#1e1b4b]' },
-    { id: 'materials', label: 'Вложения', icon: Package, color: 'bg-emerald-500' },
-    { id: 'requirements', label: 'Данные', icon: FileEdit, color: 'bg-orange-500' },
-    { id: 'processing', label: 'В работе', icon: PlayCircle, color: 'bg-indigo-500' },
-    { id: 'completed', label: 'Завершены', icon: CheckCircle, color: 'bg-slate-400' },
+    { id: 'all', label: 'Все' },
+    { id: 'materials', label: 'Вложения' },
+    { id: 'requirements', label: 'Данные' },
+    { id: 'processing', label: 'В работе' },
+    { id: 'completed', label: 'Завершены' },
   ] as const;
 
   return (
-    <div className="min-h-screen bg-[#F1F3F6] pb-10 font-sans">
-      <div className="mx-auto max-w-[1400px] px-4 pt-6">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
+      <div className="max-w-[1400px] mx-auto">
         
-        <header className="sticky top-4 z-40 mb-6 flex h-16 items-center justify-between rounded-3xl border border-slate-200 bg-white/90 px-6 backdrop-blur-xl shadow-sm">
-          <div className="flex items-center gap-4">
-            <Link href="/admin" className="flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-100 hover:scale-110 transition-all">
-              <ChevronLeft size={16} className="text-slate-600" />
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-12">
+          <div className="flex-1 flex justify-start">
+            <Link 
+              href="/admin" 
+              className="group flex h-12 w-12 items-center justify-center rounded-[1.5rem] bg-white border border-slate-100 transition-colors hover:bg-slate-50"
+            >
+              <ChevronLeft size={20} className="text-slate-600 group-hover:text-[#7171a7]" />
             </Link>
-            <h1 className="text-sm font-black uppercase tracking-tighter text-[#1e1b4b]">Заказы</h1>
           </div>
-          <div className="flex items-center gap-2 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">
-            <ShoppingBag size={12} className="text-indigo-500" />
-            <span className="text-[9px] font-black uppercase tracking-widest text-indigo-600">{filteredOrders.length} операций</span>
-          </div>
-        </header>
 
-        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
+            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
+              Управление заказами
+            </h1>
+          </div>
+
+          <div className="flex-1 flex justify-end">
+            <div className="flex items-center gap-3 px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
+               <ShoppingBag size={14} className="text-[#7171a7]" />
+               <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{filteredOrders.length} операций</span>
+            </div>
+          </div>
+        </div>
+
+        {/* TABS */}
+        <div className="flex flex-wrap items-center gap-3 mb-10">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setFilter(tab.id)}
-              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                filter === tab.id ? 'text-white shadow-md' : 'text-slate-400 bg-white border border-slate-100'
+              className={`px-8 py-3.5 rounded-[1.2rem] text-[9px] font-black uppercase tracking-widest transition-all border ${
+                filter === tab.id 
+                ? 'bg-[#1e1b4b] text-white border-[#1e1b4b]' 
+                : 'bg-white text-slate-400 border-slate-100 hover:border-[#7171a7]'
               }`}
             >
-              <div className="relative z-10 flex items-center gap-1.5">
-                <tab.icon size={12} />
-                <span>{tab.label}</span>
-              </div>
-              {filter === tab.id && (
-                <motion.div layoutId="active-pill" className={`absolute inset-0 ${tab.color} rounded-2xl z-0`} transition={{ type: "spring", bounce: 0.1, duration: 0.4 }} />
-              )}
+              {tab.label}
             </button>
           ))}
         </div>
 
-        <div className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {filteredOrders.map((order: any) => {
-              const hasAnswers = order.items.some((i: any) => i.answers && Object.keys(i.answers).length > 0);
-              const isExpanded = expandedOrders[order.id];
-              const userId = order.userId || order.user?.id;
+        {/* LIST */}
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="animate-spin text-slate-200" size={32} />
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="py-20 text-center border-2 border-dashed border-slate-100 rounded-[2.5rem]">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">Заказов не найдено</p>
+            </div>
+          ) : (
+            <AnimatePresence mode="popLayout">
+              {filteredOrders.map((order: any) => {
+                const hasAnswers = order.items.some((i: any) => i.answers && Object.keys(i.answers).length > 0);
+                const isExpanded = expandedOrders[order.id];
+                const userId = order.userId || order.user?.id;
 
-              return (
-                <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key={order.id} className="group rounded-[24px] border border-white bg-white/70 p-3 backdrop-blur-sm transition-all hover:bg-white hover:shadow-md">
-                  <div className="grid grid-cols-[1fr_auto_280px] items-center gap-4 px-2">
-                    <div className="min-w-0">
-                      <Link href={`/admin/users/${userId}`} className="inline-flex items-center gap-3 group/user hover:opacity-70 transition-opacity max-w-full">
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all ${order.status === 'completed' ? 'bg-slate-100 text-slate-400' : 'bg-[#1e1b4b] text-white shadow-sm'}`}>
-                          <User size={18} />
+                return (
+                  <motion.div 
+                    layout 
+                    initial={{ opacity: 0 }} 
+                    animate={{ opacity: 1 }} 
+                    exit={{ opacity: 0 }} 
+                    key={order.id} 
+                    className="group rounded-[2rem] border border-slate-100 bg-white p-6 transition-all duration-300 hover:border-[#7171a7]"
+                  >
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      
+                      {/* USER INFO */}
+                      <div className="flex items-center gap-5 min-w-0">
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl transition-all ${order.status === 'completed' ? 'bg-slate-50 text-slate-300' : 'bg-slate-50 text-[#1e1b4b]'}`}>
+                          <User size={20} />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="font-bold text-[13px] text-[#1e1b4b] break-all leading-tight border-b border-transparent group-hover/user:border-indigo-200 transition-colors">
+                          <Link href={`/admin/users/${userId}`} className="text-[13px] font-black uppercase tracking-tight text-[#1e1b4b] hover:text-[#7171a7] transition-colors truncate">
                             {order.user?.email || order.userEmail}
-                          </span>
-                          <span className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mt-0.5 opacity-60">
+                          </Link>
+                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest mt-1">
                             {format(new Date(order.createdAt), "d MMM yyyy, HH:mm", { locale: ru })}
                           </span>
                         </div>
-                      </Link>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-end gap-1.5 px-2">
-                      {hasAnswers && (
-                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleOrder(order.id); }} className="flex items-center gap-1.5 bg-orange-50 text-orange-600 px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tighter hover:bg-orange-100 transition-colors">
-                          <FileEdit size={10} /> ДАННЫЕ <ChevronDown size={10} className={isExpanded ? 'rotate-180 transition-transform' : ''} />
-                        </button>
-                      )}
-                      
-                      {/* СТАТУСЫ ДЛЯ АДМИНА */}
-                      {order.status === 'new' && (
-                        <div className="bg-red-50 text-red-500 px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase border border-red-100">
-                          НОВЫЙ
-                        </div>
-                      )}
-                      {order.status === 'processing' && (
-                        <div className="flex items-center gap-1.5 bg-indigo-500 text-white px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase">
-                          <PlayCircle size={10} className="animate-pulse" /> РАБОТА
-                        </div>
-                      )}
-                      {order.status === 'completed' && (
-                        <div className="flex items-center gap-1.5 bg-emerald-500 text-white px-2.5 py-1.5 rounded-lg text-[8px] font-black uppercase">
-                          <CheckCircle size={10} /> ГОТОВО
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end gap-6 border-t lg:border-t-0 pt-2 lg:pt-0 border-slate-100 h-full">
-                      <div className="text-right shrink-0">
-                        <span className="text-[8px] font-black text-slate-300 uppercase tracking-tighter block leading-none mb-1">Сумма</span>
-                        <div className="text-[16px] font-black text-[#1e1b4b] tracking-tighter leading-none">{order.amount.toLocaleString()} ₽</div>
                       </div>
 
-                      <div className="w-[140px] shrink-0">
-                        {order.status === 'completed' ? (
-                          <div className="w-full text-center py-2 rounded-xl text-[8px] font-black uppercase bg-slate-50 text-slate-400 border border-slate-100 opacity-60">АРХИВ</div>
-                        ) : (
+                      {/* BADGES & DATA TOGGLE */}
+                      <div className="flex flex-wrap items-center gap-3">
+                        {hasAnswers && (
                           <button 
-                            onClick={() => updateOrderStatus(order.id, order.status === 'processing' ? 'completed' : 'processing')}
-                            className={`w-full py-2 rounded-xl text-[8px] font-black uppercase transition-all shadow-sm active:scale-95 ${
-                              order.status === 'processing' 
-                              ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
-                              : 'bg-[#1e1b4b] text-white hover:bg-indigo-600'
-                            }`}
+                            onClick={() => toggleOrder(order.id)} 
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${isExpanded ? 'bg-[#7171a7] text-white' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}
                           >
-                            {order.status === 'processing' ? 'ЗАВЕРШИТЬ' : 'В РАБОТУ'}
+                            Данные клиента {isExpanded ? <ChevronDown size={12} className="rotate-180" /> : <ChevronDown size={12} />}
                           </button>
                         )}
+                        
+                        <div className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border ${
+                          order.status === 'new' ? 'bg-rose-50 text-rose-500 border-rose-100' :
+                          order.status === 'processing' ? 'bg-indigo-50 text-indigo-500 border-indigo-100' :
+                          'bg-emerald-50 text-emerald-500 border-emerald-100'
+                        }`}>
+                          {order.status === 'new' ? 'Новый' : order.status === 'processing' ? 'В работе' : 'Готово'}
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  <AnimatePresence>
-                    {isExpanded && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                        <div className="mt-3 pt-3 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                          {order.items.map((item: any) => 
-                            item.answers && Object.entries(item.answers).map(([key, value]: [string, any]) => (
-                              <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100/50">
-                                <div className="text-[7px] font-black text-indigo-400 uppercase tracking-tighter mb-1">{item.product.requirements?.[key]?.title || "Поле"}</div>
-                                <div className="text-[10px] font-bold text-[#1e1b4b] leading-tight break-words">{String(value)}</div>
-                              </div>
-                            ))
+                      {/* AMOUNT & ACTIONS */}
+                      <div className="flex items-center gap-8 lg:border-l lg:pl-8 border-slate-50">
+                        <div className="text-right">
+                          <span className="text-[8px] font-black text-slate-300 uppercase tracking-widest block mb-1">Сумма</span>
+                          <span className="text-lg font-black text-[#1e1b4b] tracking-tighter">{order.amount.toLocaleString()} ₽</span>
+                        </div>
+
+                        <div className="w-[140px]">
+                          {order.status === 'completed' ? (
+                            <div className="w-full text-center py-3.5 rounded-xl text-[9px] font-black uppercase bg-slate-50 text-slate-300 border border-slate-100">Архив</div>
+                          ) : (
+                            <button 
+                              onClick={() => updateOrderStatus(order.id, order.status === 'processing' ? 'completed' : 'processing')}
+                              className={`w-full py-3.5 rounded-xl text-[9px] font-black uppercase transition-all ${
+                                order.status === 'processing' 
+                                ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
+                                : 'bg-[#1e1b4b] text-white hover:bg-[#7171a7]'
+                              }`}
+                            >
+                              {order.status === 'processing' ? 'Завершить' : 'В работу'}
+                            </button>
                           )}
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
+                      </div>
+                    </div>
+
+                    {/* EXPANDED DATA */}
+                    <AnimatePresence>
+                      {isExpanded && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                          <div className="mt-6 pt-6 border-t border-slate-50 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {order.items.map((item: any) => 
+                              item.answers && Object.entries(item.answers).map(([key, value]: [string, any]) => (
+                                <div key={key} className="bg-slate-50/50 p-4 rounded-[1.2rem] border border-slate-100">
+                                  <div className="text-[8px] font-black text-[#7171a7] uppercase tracking-widest mb-2">{item.product.requirements?.[key]?.title || "Поле"}</div>
+                                  <div className="text-[11px] font-bold text-[#1e1b4b] leading-relaxed break-words">{String(value)}</div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          )}
+        </div>
+
+        {/* FOOTER */}
+        <div className="mt-20 pt-10 border-t border-slate-50 flex justify-between items-center text-[9px] font-black uppercase tracking-[0.4em] text-slate-200">
+          <p>Unit One Ecosystem v.2.4</p>
+          <div className="flex gap-4 items-center">
+             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+             <span className="text-emerald-500/50 tracking-widest">Процессинг активен</span>
+          </div>
         </div>
       </div>
     </div>

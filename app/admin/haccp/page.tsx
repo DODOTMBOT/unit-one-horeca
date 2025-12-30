@@ -13,14 +13,14 @@ export default async function ProductsHubPage() {
 
   const productLinks = [
     {
-      name: "Добавить продукт",
-      href: "/admin/products/create",
-      description: "Создание новой карточки, загрузка фото и цен"
+      name: "Журналы здоровья",
+      href: "/admin/haccp/health",
+      description: "Просмотр и управление журналами здоровья клиентов"
     },
     {
-      name: "Редакция каталога",
-      href: "/admin/products/manage",
-      description: "Управление всеми товарами и их удаление"
+      name: "Журнал температурных режимов",
+      href: "/admin/haccp/temperature",
+      description: "Просмотр и управление журналами температурных режимов"
     },
     {
       name: "Категории",

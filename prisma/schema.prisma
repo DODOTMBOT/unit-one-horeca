@@ -24,6 +24,31 @@ enum OrderStatus {
   CANCELLED
 }
 
+// --- СИСТЕМА ДИНАМИЧЕСКИХ РОЛЕЙ И ПРАВ ---
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique // "OWNER", "ADMIN", "COURIER" и т.д.
+  users       User[]
+  permissions RolePermission[] // Связь с правами доступа
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  name        String           @unique // Например: "users:edit", "haccp:view"
+  description String?          // Описание для админки
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
 // --- СИСТЕМНЫЕ МОДЕЛИ ---
 
 model User {
@@ -33,7 +58,13 @@ model User {
   name      String?
   surname   String?
   email     String?  @unique
+  
+  // Старая роль (Enum) - для обратной совместимости
   role      UserRole @default(USER)
+
+  // НОВЫЕ ПОЛЯ ДЛЯ СВЯЗИ С ТАБЛИЦЕЙ РОЛЕЙ
+  roleId    String? 
+  newRole   Role?    @relation(fields: [roleId], references: [id])
 
   // --- СВЯЗИ ДЛЯ ПАРТНЕРА ---
   ownedEstablishments Establishment[] @relation("OwnerToEstablishment")
@@ -47,9 +78,9 @@ model User {
   staffMembers  User[]  @relation("PartnerToStaff")
 
   // --- ХАССП: Журналы ---
-  healthLogs    HealthLog[]      @relation("EmployeeHealthEntries")
-  performedLogs HealthLog[]      @relation("ManagerHealthChecks")
-  tempLogs      TemperatureLog[]
+  healthLogs     HealthLog[]      @relation("EmployeeHealthEntries")
+  performedLogs  HealthLog[]      @relation("ManagerHealthChecks")
+  tempLogs       TemperatureLog[]
 
   // --- СИСТЕМНЫЕ ПОЛЯ ---
   subscriptionStatus  String?           @default("none")
@@ -67,10 +98,10 @@ model User {
   birthDate         String?
   socialLink        String?
 
-  accounts Account[]
-  sessions Session[]
-  orders   Order[]
-  cart     Cart?
+  accounts  Account[]
+  sessions  Session[]
+  orders    Order[]
+  cart      Cart?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -306,20 +337,20 @@ model SubscriptionPlan {
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String? @db.Text
-  access_token       String? @db.Text
-  expires_at         Int?
-  token_type         String?
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
   refresh_token_expires_in Int?
-  scope              String?
-  id_token           String? @db.Text
-  session_state      String?
-  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
 
@@ -374,9 +405,9 @@ model Direction {
   imageUrl String? @db.Text
   iconName String?
 
-  badge       String? @default("Open")
-  activeColor String? @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
-  bgColor     String? @default("#F8FAFC")
+  badge        String? @default("Open")
+  activeColor  String? @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
+  bgColor      String? @default("#F8FAFC")
 
   order Int @default(0)
 

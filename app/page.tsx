@@ -29,68 +29,73 @@ export default async function Home() {
   });
 
   return (
-    <div className="bg-white min-h-screen flex flex-col font-sans overflow-x-hidden">
-      {/* Уменьшен верхний отступ (pt-4 md:pt-6), чтобы поднять контент к меню */}
-      <div className="flex-1 flex flex-col items-center px-4 md:px-8 pt-4 md:pt-6 text-center">
+    <div className="bg-[#F8FAFC] min-h-screen flex flex-col font-sans overflow-x-hidden">
+      <div className="flex-1 flex flex-col items-center px-4 md:px-8 pt-10 md:pt-16 text-center">
         
-        {/* HEADER - Сделан компактнее по отступам */}
-        <div className="w-full max-w-4xl mb-8 md:mb-12">
-          <h2 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-[#1e1b4b] mb-3">
-            Экосистема бизнеса
-          </h2>
-          <div className="h-1 w-16 bg-indigo-500 rounded-full mx-auto" />
+        {/* HEADER - Плоский стиль */}
+        <div className="w-full max-w-4xl mb-16 md:mb-24">
+          <div className="inline-block px-12 py-4 bg-white border border-slate-100 rounded-[1.5rem] mb-6">
+            <h1 className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-800 leading-none">
+              Экосистема бизнеса
+            </h1>
+          </div>
+          <p className="text-slate-400 text-[11px] font-bold uppercase tracking-widest">
+            Выберите направление для работы с платформой
+          </p>
         </div>
 
-        {/* GRID CONTAINER - Увеличены размеры кругов и вертикальные отступы (gap-y-20) */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-20 md:gap-x-12 md:gap-y-24 w-full max-w-[1400px] mx-auto pb-24">
+        {/* GRID CONTAINER - Убраны тени, добавлена лавандовая обводка */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16 w-full max-w-[1400px] mx-auto pb-24">
           {directions.map((item: any) => {
             const isSoon = item.isComingSoon === true;
 
             const CardContent = (
-              <div className="flex flex-col items-center group">
-                {/* КРУГ: Увеличен размер до w-48/72 (было w-40/60) */}
+              <div className="flex flex-col items-center group w-full">
+                {/* КРУГ: Теперь плоский с лавандовой обводкой при наведении */}
                 <div 
                   className={`
-                    relative w-44 h-44 sm:w-60 sm:h-60 lg:w-72 lg:h-72 
-                    rounded-full overflow-hidden
+                    relative w-64 h-64 lg:w-72 lg:h-72 
+                    rounded-[3rem] overflow-hidden
                     flex items-center justify-center 
-                    transition-all duration-700 ease-in-out
-                    border border-slate-100 mb-6
+                    transition-all duration-500 ease-in-out
+                    border bg-white
                     ${isSoon 
-                      ? 'border-dashed border-slate-300 bg-slate-50 grayscale opacity-40 shadow-none' 
-                      : 'bg-[#F8FAFC] group-hover:bg-white group-hover:border-transparent group-hover:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.15)] grayscale group-hover:grayscale-0'
+                      ? 'border-dashed border-slate-200 opacity-40' 
+                      : 'border-slate-100 group-hover:border-[#7171a7]'
                     }
                   `}
                 >
-                  <div className={`relative w-full h-full transition-transform duration-700 ease-out ${!isSoon && 'group-hover:scale-110'}`}>
+                  <div className="relative w-full h-full p-4">
                     {item.imageUrl ? (
                       <Image 
                         src={item.imageUrl} 
                         alt={item.title} 
                         fill 
-                        className="object-cover" 
+                        className={`object-cover rounded-[2.5rem] p-2 transition-transform duration-700 ${!isSoon && 'group-hover:scale-105'}`}
                         unoptimized 
                       />
                     ) : (
-                      <FallbackIllustration id={item.id} />
+                      <div className="flex items-center justify-center h-full">
+                        <FallbackIllustration id={item.id} />
+                      </div>
                     )}
                   </div>
 
                   {isSoon && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-sm z-10">
-                       <span className="bg-[#1e1b4b] text-white px-5 py-2 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[2px] z-10">
+                       <span className="text-[#1e1b4b] border border-[#1e1b4b] px-6 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em]">
                          Soon
                        </span>
                     </div>
                   )}
                 </div>
 
-                {/* ТЕКСТ - Чуть увеличены размеры для баланса с большими кругами */}
-                <div className={`text-center transition-all duration-500 ${isSoon ? 'opacity-30' : 'opacity-60 group-hover:opacity-100 group-hover:translate-y-1'}`}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.3em] text-indigo-500 mb-2">
+                {/* ТЕКСТ */}
+                <div className={`mt-8 text-center transition-all duration-500 ${isSoon ? 'opacity-20' : 'opacity-100 group-hover:translate-y-1'}`}>
+                  <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#7171a7] mb-3">
                     {item.title}
                   </p>
-                  <h3 className="text-xl md:text-2xl font-bold text-[#1e1b4b] leading-tight px-2">
+                  <h3 className="text-lg md:text-xl font-black text-[#1e1b4b] leading-tight uppercase tracking-tighter px-4">
                     {item.subtitle}
                   </h3>
                 </div>
@@ -114,12 +119,12 @@ export default async function Home() {
         </div>
       </div>
 
-      <footer className="w-full py-10 opacity-30 hover:opacity-100 transition-opacity mt-auto border-t border-slate-50">
-        <div className="max-w-[1400px] mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-          <p>© Unit One Platform • {new Date().getFullYear()}</p>
-          <div className="flex gap-8">
-            <Link href="/policy" className="hover:text-indigo-600 transition-colors">Политика</Link>
-            <Link href="/terms" className="hover:text-indigo-600 transition-colors">Оферта</Link>
+      <footer className="w-full py-12 mt-auto border-t border-slate-100 bg-white">
+        <div className="max-w-[1400px] mx-auto px-8 flex flex-col md:flex-row justify-between items-center gap-6 text-[9px] font-black uppercase tracking-[0.3em] text-slate-300">
+          <p>© Unit One Ecosystem • {new Date().getFullYear()}</p>
+          <div className="flex gap-10">
+            <Link href="/policy" className="hover:text-[#7171a7] transition-colors">Политика</Link>
+            <Link href="/terms" className="hover:text-[#7171a7] transition-colors">Оферта</Link>
           </div>
         </div>
       </footer>

@@ -5,21 +5,34 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import bcrypt from "bcrypt";
 
-// 1. Расширяем типы NextAuth, добавляя surname
+// 1. Расширяем типы NextAuth
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
       role: string;
-      surname?: string | null; // Добавили фамилию
-      partnerCode?: string | null;
+      roleName?: string;
+      permissions: string[];
+      surname?: string | null;
+      partnerId?: string | null; // Исправлено на partnerId согласно схеме
     } & DefaultSession["user"]
   }
 
   interface User {
     role: string;
-    surname?: string | null; // Добавили фамилию
-    partnerCode?: string | null;
+    surname?: string | null;
+    partnerId?: string | null; // Исправлено
+  }
+}
+
+// 2. Расширяем типы JWT специально для Middleware
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+    permissions: string[];
+    surname?: string | null;
+    partnerId?: string | null; // Исправлено
   }
 }
 
@@ -55,7 +68,7 @@ export const authOptions: NextAuthOptions = {
               { email: credentials.login }
             ]
           }
-        }) as any;
+        });
 
         if (!user || !user.password) {
           throw new Error("Пользователь не найден");
@@ -67,34 +80,56 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Неверный пароль");
         }
 
-        // 2. Возвращаем surname из БД при авторизации
         return {
           id: user.id,
           name: user.name,
-          surname: user.surname, // <--- Важно
+          surname: user.surname,
           email: user.email,
           role: user.role,
-          partnerCode: user.partnerCode,
         };
       }
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
-        token.surname = user.surname; // 3. Записываем в токен
-        token.partnerCode = user.partnerCode;
+      const userId = user?.id || token.id;
+      
+      if (userId) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: userId as string },
+          select: {
+            id: true,
+            role: true,
+            surname: true,
+            partnerId: true, // Используем актуальное поле из схемы
+            newRole: {
+              include: {
+                permissions: {
+                  include: { permission: true }
+                }
+              }
+            }
+          }
+        });
+
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+          token.surname = dbUser.surname;
+          token.partnerId = dbUser.partnerId;
+          // Собираем массив строк названий прав
+          token.permissions = dbUser.newRole?.permissions.map((rp: any) => rp.permission.name) || [];
+        }
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.surname = token.surname as string | null; // 4. Пробрасываем в сессию
-        session.user.partnerCode = token.partnerCode as string | null;
+      if (session.user && token) {
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.surname = token.surname;
+        session.user.partnerId = token.partnerId;
+        session.user.permissions = token.permissions || [];
       }
       return session;
     },
