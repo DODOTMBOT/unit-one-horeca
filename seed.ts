@@ -2,91 +2,78 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
-  // 1. ОПРЕДЕЛЯЕМ ПРАВА ДОСТУПА КАК ПУТИ (Pathnames)
   const permissions = [
-    // Уровень 1
-    { name: '/admin', description: 'Доступ в общую админ-панель' },
-    { name: '/partner', description: 'Доступ в панель партнера' },
+    // --- Уровень 1: КОРНИ ---
+    { name: '/admin', description: 'Панель администратора' },
+    { name: '/partner', description: 'Панель партнёра' },
 
-    // Уровень 2: Админка
-    { name: '/admin/users', description: 'Просмотр и поиск пользователей' },
-    { name: '/admin/roles', description: 'Управление ролями и правами доступа' }, // КРИТИЧНО
-    { name: '/admin/marketplace', description: 'Управление товарами и категориями' },
-    { name: '/admin/haccp', description: 'Глобальный мониторинг ХАССП' },
-    { name: '/admin/orders', description: 'Просмотр всех заказов платформы' },
+    // --- Уровень 2: АДМИН ---
+    { name: '/admin/settings', description: 'Настройка сайта' },
+    { name: '/admin/products', description: 'Маркетплейс решений' },
+    { name: '/admin/haccp', description: 'Журналы ХАССП (Админ)' },
+    { name: '/admin/settings/roles', description: 'Управление ролями' },
+    { name: '/admin/users/list', description: 'Список пользователей' },
 
-    // Уровень 2: Партнер
-    { name: '/partner/haccp', description: 'Журналы ХАССП заведения' },
-    { name: '/partner/staff', description: 'Управление сотрудниками заведения' },
-    { name: '/partner/settings', description: 'Настройки профиля бизнеса' },
-    { name: '/partner/analytics', description: 'Аналитика продаж и чеков' },
+    // --- Уровень 2: ПАРТНЕР ---
+    { name: '/partner/analytics', description: 'Аналитика и мониторинг' },
+    
+    // === ХАССП (ИСПРАВЛЕНО: Добавлены дочки) ===
+    { name: '/partner/haccp', description: 'Журналы HACCP' },
+    { name: '/partner/haccp/health', description: 'Журнал здоровья' },
+    { name: '/partner/haccp/temperature', description: 'Температуры' },
+    { name: '/partner/haccp/fryer', description: 'Фритюрные жиры' },
+    { name: '/partner/haccp/quality', description: 'Бракераж' },
+    
+    // === ОФИС (Вложенность) ===
+    { name: '/partner/office', description: 'Менеджер офиса' },
+    { name: '/partner/office/staff', description: 'Сотрудники' },
+    { name: '/partner/office/establishments', description: 'Рестораны' },
+    { name: '/partner/office/equipment', description: 'Оборудование' },
   ]
 
-  console.log('⏳ Синхронизация страниц доступа (Permissions)...')
+  console.log('⏳ Очистка старых прав...')
+  // Очищаем таблицу связей и прав (чтобы удалить дубли и мусор)
+  await prisma.rolePermission.deleteMany({})
+  await prisma.permission.deleteMany({})
+
+  console.log('⏳ Запись новых путей в базу...')
   for (const p of permissions) {
-    await prisma.permission.upsert({
-      where: { name: p.name },
-      update: { description: p.description },
-      create: p,
+    await prisma.permission.create({
+      data: p
     })
   }
 
-  // 2. ОПРЕДЕЛЯЕМ БАЗОВЫЕ РОЛИ
-  const roles = ['OWNER', 'ADMIN', 'PARTNER', 'MANAGER', 'USER']
-
-  console.log('⏳ Синхронизация базовых ролей...')
-  for (const roleName of roles) {
-    await prisma.role.upsert({
-      where: { name: roleName },
-      update: {},
-      create: { name: roleName },
-    })
-  }
-
-  // 3. ПРИВЯЗКА ПРАВ ДЛЯ OWNER И ADMIN
-  const allPerms = await prisma.permission.findMany()
-  const superRoles = ['OWNER', 'ADMIN']
-
-  for (const roleName of superRoles) {
-    const roleRecord = await prisma.role.findUnique({ where: { name: roleName } })
-    
-    if (roleRecord) {
-      console.log(`⏳ Настройка полных прав для роли: ${roleName}...`)
-      for (const perm of allPerms) {
-        await prisma.rolePermission.upsert({
-          where: {
-            roleId_permissionId: {
-              roleId: roleRecord.id,
-              permissionId: perm.id
-            }
-          },
-          update: {},
-          create: {
-            roleId: roleRecord.id,
-            permissionId: perm.id
-          }
-        })
-      }
-    }
-  }
-
-  // 4. ПРИНУДИТЕЛЬНАЯ ПРИВЯЗКА ТВОЕГО АККАУНТА К OWNER
-  // Чтобы ты точно мог зайти и настраивать систему
-  const myEmail = "ar.em.v@yandex.ru" // Твоя почта из логов
+  // Находим роль OWNER (Владелец)
   const ownerRole = await prisma.role.findUnique({ where: { name: 'OWNER' } })
-
+  
+  // Если роль есть — даем ей ВСЕ права автоматически
   if (ownerRole) {
-    console.log(`⏳ Назначение роли OWNER для ${myEmail}...`)
-    await prisma.user.update({
+    console.log('⏳ Выдача прав владельцу...')
+    const allPerms = await prisma.permission.findMany()
+    
+    // Создаем связи разом (быстрее)
+    await prisma.rolePermission.createMany({
+      data: allPerms.map(perm => ({
+        roleId: ownerRole.id,
+        permissionId: perm.id
+      }))
+    })
+  }
+
+  // Привязываем твой аккаунт к роли OWNER (чтобы ты не потерял доступ)
+  const myEmail = "ar@ar.ru"
+  if (ownerRole) {
+    await prisma.user.updateMany({
       where: { email: myEmail },
       data: { 
-        role: 'OWNER', // Старый enum
-        roleId: ownerRole.id // Новая таблица
+        role: 'OWNER', 
+        roleId: ownerRole.id 
       }
     })
+    console.log(`✅ Аккаунт ${myEmail} обновлен до OWNER`)
   }
 
-  console.log('✅ Сид успешно завершен! Теперь перезайди в аккаунт на сайте.')
+  console.log('✅ База успешно синхронизирована.')
 }
 
 main()

@@ -1,55 +1,41 @@
 import { NextAuthOptions, DefaultSession } from "next-auth";
-import YandexProvider from "next-auth/providers/yandex";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 import bcrypt from "bcrypt";
 
-// 1. Расширяем типы NextAuth
 declare module "next-auth" {
   interface Session {
     user: {
       id: string;
       role: string;
-      roleName?: string;
       permissions: string[];
       surname?: string | null;
-      partnerId?: string | null; // Исправлено на partnerId согласно схеме
+      partnerId?: string | null;
     } & DefaultSession["user"]
   }
-
   interface User {
+    id: string;
     role: string;
     surname?: string | null;
-    partnerId?: string | null; // Исправлено
+    partnerId?: string | null;
   }
 }
 
-// 2. Расширяем типы JWT специально для Middleware
 declare module "next-auth/jwt" {
   interface JWT {
     id: string;
     role: string;
     permissions: string[];
-    surname?: string | null;
-    partnerId?: string | null; // Исправлено
+    partnerId?: string | null;
   }
 }
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
-  session: {
-    strategy: "jwt",
-  },
-  pages: {
-    signIn: "/auth/login",
-  },
+  session: { strategy: "jwt" },
+  pages: { signIn: "/auth/login" },
   providers: [
-    YandexProvider({
-      clientId: process.env.YANDEX_CLIENT_ID!,
-      clientSecret: process.env.YANDEX_CLIENT_SECRET!,
-      allowDangerousEmailAccountLinking: true,
-    }),
     CredentialsProvider({
       name: "Credentials",
       credentials: {
@@ -57,36 +43,14 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Пароль", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.login || !credentials?.password) {
-          throw new Error("Введите логин и пароль");
-        }
-
+        if (!credentials?.login || !credentials?.password) throw new Error("Данные не введены");
         const user = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { login: credentials.login },
-              { email: credentials.login }
-            ]
-          }
+          where: { OR: [{ login: credentials.login }, { email: credentials.login }] }
         });
-
-        if (!user || !user.password) {
-          throw new Error("Пользователь не найден");
-        }
-
+        if (!user || !user.password) throw new Error("Пользователь не найден");
         const isValid = await bcrypt.compare(credentials.password, user.password);
-
-        if (!isValid) {
-          throw new Error("Неверный пароль");
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          surname: user.surname,
-          email: user.email,
-          role: user.role,
-        };
+        if (!isValid) throw new Error("Неверный пароль");
+        return { id: user.id, name: user.name, email: user.email, role: user.role, partnerId: user.partnerId };
       }
     }),
   ],
@@ -95,41 +59,42 @@ export const authOptions: NextAuthOptions = {
       const userId = user?.id || token.id;
       
       if (userId) {
+        // ИСПОЛЬЗУЕМ newRole, так как именно так называется связь в твоей schema.prisma
         const dbUser = await prisma.user.findUnique({
           where: { id: userId as string },
-          select: {
-            id: true,
-            role: true,
-            surname: true,
-            partnerId: true, // Используем актуальное поле из схемы
-            newRole: {
-              include: {
-                permissions: {
-                  include: { permission: true }
-                }
-              }
-            }
+          include: { 
+            newRole: { 
+              include: { 
+                permissions: { 
+                  include: { 
+                    permission: true 
+                  } 
+                } 
+              } 
+            } 
           }
         });
 
         if (dbUser) {
           token.id = dbUser.id;
-          token.role = dbUser.role;
-          token.surname = dbUser.surname;
+          token.role = dbUser.role; // Это OWNER/PARTNER из Enuma
           token.partnerId = dbUser.partnerId;
-          // Собираем массив строк названий прав
-          token.permissions = dbUser.newRole?.permissions.map((rp: any) => rp.permission.name) || [];
+          
+          // Достаем права из newRole
+          const perms = dbUser.newRole?.permissions?.map((p: any) => p.permission.name) || [];
+          token.permissions = perms;
+          
+          console.log("AUTH SUCCESS. Loaded permissions:", perms.length);
         }
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token) {
+      if (session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
-        session.user.surname = token.surname;
-        session.user.partnerId = token.partnerId;
         session.user.permissions = token.permissions || [];
+        session.user.partnerId = token.partnerId;
       }
       return session;
     },
