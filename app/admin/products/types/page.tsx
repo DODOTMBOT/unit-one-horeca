@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, Loader2 } from "lucide-react";
+import { ChevronLeft, Loader2, Plus, Edit2, Trash2, Check, X, Tags } from "lucide-react";
 
 // Твои UI компоненты
 import { Input } from "@/components/ui/Input";
@@ -16,7 +16,7 @@ interface ProductType {
   };
 }
 
-const lightInput = "bg-slate-50 border-slate-100 text-[#1e1b4b] placeholder:text-slate-400 focus:bg-white focus:border-[#7171a7] transition-all duration-300";
+const lightInput = "bg-gray-50 border-transparent focus:bg-white focus:border-[#10b981] text-[#111827] placeholder:text-gray-400 transition-all duration-300 rounded-xl px-4 py-3";
 
 export default function AdminTypesPage() {
   const [types, setTypes] = useState<ProductType[]>([]);
@@ -96,141 +96,141 @@ export default function AdminTypesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
-      <div className="max-w-[1400px] mx-auto">
-        
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-12">
-          <div className="flex-1 flex justify-start">
-            <Link 
-              href="/admin/products" 
-              className="group flex h-12 w-12 items-center justify-center rounded-[1.5rem] bg-white border border-slate-100 transition-colors hover:bg-slate-50"
-            >
-              <ChevronLeft size={20} className="text-slate-600 group-hover:text-[#7171a7]" />
-            </Link>
+    <div className="flex flex-col gap-8 pb-20">
+      
+      {/* HEADER */}
+      <div className="flex items-center justify-between px-2">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/products" className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm">
+            <ChevronLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-3xl font-light text-[#111827] tracking-tight">Типы продуктов</h1>
+            <p className="text-sm text-gray-500 font-medium">Форматы реализации решений</p>
           </div>
-
-          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
-              Типы продуктов
-            </h1>
-          </div>
-
-          <div className="flex-1 hidden md:flex" />
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          
-          {/* ФОРМА СОЗДАНИЯ */}
-          <div className="lg:col-span-4">
-            <section className="rounded-[2.5rem] border border-slate-100 bg-white p-10">
-              <div className="mb-10">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Новый формат</h2>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
+        
+        {/* ФОРМА СОЗДАНИЯ */}
+        <div className="lg:col-span-4 sticky top-6">
+          <section className="rounded-[2.5rem] bg-white p-8 shadow-soft border border-gray-100">
+            <div className="mb-8 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-[#ecfdf5] text-[#10b981] flex items-center justify-center">
+                <Plus size={20} />
               </div>
-
-              <form onSubmit={handleCreate} className="space-y-8">
-                <Input
-                  label="Название"
-                  value={newTypeName}
-                  onChange={(e) => setNewTypeName(e.target.value)}
-                  placeholder="НАПР: ЧЕК-ЛИСТ"
-                  className={lightInput}
-                />
-
-                <div className="flex items-center justify-between p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Готовые файлы</span>
-                  <label className="relative inline-flex cursor-pointer items-center">
-                    <input 
-                      type="checkbox" 
-                      checked={newHasMaterials} 
-                      onChange={(e) => setNewHasMaterials(e.target.checked)} 
-                      className="peer sr-only" 
-                    />
-                    <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#1e1b4b] peer-checked:after:translate-x-full peer-focus:outline-none"></div>
-                  </label>
-                </div>
-
-                <button 
-                  type="submit" 
-                  disabled={isCreating || !newTypeName.trim()} 
-                  className="w-full h-14 bg-[#1e1b4b] text-white rounded-[1.2rem] font-black uppercase text-[10px] tracking-widest hover:bg-[#7171a7] transition-all flex items-center justify-center disabled:opacity-50"
-                >
-                  {isCreating ? <Loader2 size={16} className="animate-spin" /> : "Создать тип"}
-                </button>
-              </form>
-            </section>
-          </div>
-
-          {/* СПИСОК СУЩЕСТВУЮЩИХ */}
-          <div className="lg:col-span-8">
-            <div className="mb-8 pl-4">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300">Существующие форматы</h2>
+              <h2 className="text-lg font-bold text-[#111827]">Новый формат</h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {isLoading ? (
-                <div className="col-span-full py-20 text-center">
-                   <Loader2 size={32} className="animate-spin inline text-slate-200" />
-                </div>
-              ) : types.map((type) => (
+            <form onSubmit={handleCreate} className="space-y-6">
+              <Input
+                label="Название формата"
+                value={newTypeName}
+                onChange={(e) => setNewTypeName(e.target.value)}
+                placeholder="Напр: ЧЕК-ЛИСТ"
+                className={lightInput}
+              />
+
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-transparent">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Готовые файлы</span>
+                <label className="relative inline-flex cursor-pointer items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={newHasMaterials} 
+                    onChange={(e) => setNewHasMaterials(e.target.checked)} 
+                    className="peer sr-only" 
+                  />
+                  <div className="peer h-6 w-11 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-[#10b981] peer-checked:after:translate-x-full peer-focus:outline-none"></div>
+                </label>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={isCreating || !newTypeName.trim()} 
+                className="w-full h-[52px] bg-[#10b981] text-white rounded-xl text-sm font-bold hover:bg-[#059669] transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+              >
+                {isCreating ? <Loader2 size={18} className="animate-spin" /> : "Создать тип"}
+              </button>
+            </form>
+          </section>
+        </div>
+
+        {/* СПИСОК СУЩЕСТВУЮЩИХ */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="px-2">
+            <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-gray-400">Существующие форматы ({types.length})</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {isLoading ? (
+              <div className="col-span-full py-20 text-center bg-white rounded-[2.5rem] shadow-soft border border-gray-100">
+                 <Loader2 size={32} className="animate-spin inline text-[#10b981]" />
+              </div>
+            ) : types.length === 0 ? (
+              <div className="col-span-full py-16 bg-white rounded-[2.5rem] border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                <Tags size={40} className="mb-3 opacity-20" />
+                <p className="text-sm font-bold uppercase tracking-widest">Список пуст</p>
+              </div>
+            ) : (
+              types.map((type) => (
                 <div 
                   key={type.id} 
-                  className="group relative flex flex-col p-8 rounded-[2rem] border border-slate-100 bg-white transition-all duration-300 hover:border-[#7171a7]"
+                  className="group relative flex flex-col p-6 rounded-[2rem] bg-white border border-transparent shadow-soft transition-all duration-300 hover:border-[#10b981]/30 hover:shadow-xl"
                 >
                   {editingId === type.id ? (
-                    <div className="space-y-6">
-                      <Input 
+                    <div className="space-y-4">
+                      <input 
+                        autoFocus
                         value={editingName} 
                         onChange={(e) => setEditingName(e.target.value)} 
-                        className={lightInput}
+                        className="w-full bg-gray-50 text-sm font-bold uppercase tracking-tight text-[#111827] border-b-2 border-[#10b981] outline-none p-2 rounded-t-lg"
                       />
                       <div className="flex items-center justify-between">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input type="checkbox" checked={editingHasMaterials} onChange={(e) => setEditingHasMaterials(e.target.checked)} className="h-4 w-4 rounded border-slate-300 text-[#1e1b4b] focus:ring-0" />
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Материалы</span>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input type="checkbox" checked={editingHasMaterials} onChange={(e) => setEditingHasMaterials(e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-[#10b981] focus:ring-0" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Материалы</span>
                         </label>
                         <div className="flex gap-2">
-                           <button onClick={saveEditing} className="text-[9px] font-black uppercase text-emerald-500">OK</button>
-                           <button onClick={() => setEditingId(null)} className="text-[9px] font-black uppercase text-slate-300">ESC</button>
+                           <button onClick={saveEditing} className="p-1.5 bg-[#10b981] text-white rounded-lg hover:bg-[#059669] transition-colors">
+                              <Check size={14} />
+                           </button>
+                           <button onClick={() => setEditingId(null)} className="p-1.5 bg-gray-100 text-gray-400 rounded-lg hover:bg-gray-200 transition-colors">
+                              <X size={14} />
+                           </button>
                         </div>
                       </div>
                     </div>
                   ) : (
                     <div className="flex flex-col h-full">
-                      <div className="flex items-start justify-between mb-6">
-                        <div className={`text-[8px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest ${type.hasMaterials ? 'bg-emerald-50 text-emerald-500 border border-emerald-100' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
-                           {type.hasMaterials ? 'Файловый' : 'Услуга'}
+                      <div className="flex items-center justify-between mb-5">
+                        <div className={`text-[9px] font-bold px-3 py-1 rounded-lg uppercase tracking-wider ${type.hasMaterials ? 'bg-[#ecfdf5] text-[#10b981] border border-[#d1fae5]' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
+                           {type.hasMaterials ? 'С материалами' : 'Без материалов'}
                         </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => startEditing(type)} className="text-[9px] font-black uppercase text-slate-300 hover:text-[#7171a7]">Edit</button>
+                        <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => startEditing(type)} className="p-1.5 rounded-lg text-gray-400 hover:bg-[#ecfdf5] hover:text-[#10b981] transition-colors">
+                            <Edit2 size={14} />
+                          </button>
                           <button 
+                            disabled={(type._count?.products || 0) > 0}
                             onClick={() => handleDelete(type.id, type._count?.products || 0)} 
-                            className={`text-[9px] font-black uppercase ${(type._count?.products || 0) > 0 ? 'text-slate-100 cursor-not-allowed' : 'text-slate-300 hover:text-rose-500'}`}
+                            className={`p-1.5 rounded-lg transition-colors ${(type._count?.products || 0) > 0 ? 'text-gray-100 cursor-not-allowed' : 'text-gray-400 hover:bg-rose-50 hover:text-rose-500'}`}
                           >
-                            Del
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </div>
 
-                      <h4 className="text-sm font-black uppercase tracking-tight text-[#1e1b4b] mb-2">{type.name}</h4>
-                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mt-auto">Товаров: {type._count?.products || 0}</p>
+                      <h4 className="text-[15px] font-bold uppercase tracking-tight text-[#111827] mb-1">{type.name}</h4>
+                      <p className="text-[10px] font-bold text-gray-300 uppercase tracking-[0.1em] mt-auto">Товаров в базе: {type._count?.products || 0}</p>
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* FOOTER */}
-        <div className="mt-20 pt-10 border-t border-slate-50 flex justify-between items-center text-[9px] font-black uppercase tracking-[0.4em] text-slate-200">
-          <p>Unit One Ecosystem v.2.4</p>
-          <div className="flex gap-4 items-center">
-             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-             <span className="text-emerald-500/50 tracking-widest">Конфигурация типов активна</span>
+              ))
+            )}
           </div>
         </div>
+
       </div>
     </div>
   );

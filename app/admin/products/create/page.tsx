@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { ChevronLeft, Plus, X, Upload, Palette, LayoutGrid, Loader2 } from 'lucide-react';
+import { ChevronLeft, Plus, X, Upload, Palette, LayoutGrid, Loader2, Save, Image as ImageIcon } from 'lucide-react';
 
 // UI компоненты
 import { Input } from '@/components/ui/Input';
@@ -14,9 +14,9 @@ import { Textarea } from '@/components/ui/Textarea';
 
 interface Category { id: string; name: string; }
 interface ProductType { id: string; name: string; hasMaterials: boolean; }
-interface Tag { id: string; name: string; }
 
-const lightInput = "bg-slate-50 border-slate-100 text-[#1e1b4b] placeholder:text-slate-400 focus:bg-white focus:border-[#7171a7] transition-all duration-300";
+// Обновленный стиль инпутов под новый дизайн
+const lightInput = "bg-gray-50 border-transparent focus:bg-white focus:border-[#10b981] text-[#111827] placeholder:text-gray-400 transition-all duration-300 rounded-xl px-4 py-3";
 
 export default function CreateProductPage() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function CreateProductPage() {
       price: "",
       categoryId: "", 
       typeId: "",
-      bgColor: "#F8F7FF",
+      bgColor: "#ffffff",
       badgeText: "",
       badgeColor: "neutral",
       imageUrl: "",
@@ -51,8 +51,11 @@ export default function CreateProductPage() {
           setCategories(data.categories || []);
           setTypes(data.types || []);
         }
-      } catch (error) { console.error("Ошибка загрузки:", error); }
-      finally { setIsLoading(false); }
+      } catch (error) { 
+        console.error("Ошибка загрузки:", error); 
+      } finally { 
+        setIsLoading(false); 
+      }
     }
     fetchAttributes();
   }, []);
@@ -79,52 +82,56 @@ export default function CreateProductPage() {
         router.push('/admin/products');
         router.refresh();
       }
-    } catch (error: any) { alert(error.message); }
+    } catch (error: any) { 
+      alert(error.message); 
+    }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <Loader2 className="animate-spin text-[#10b981]" size={32} />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
-      <form onSubmit={handleSubmit(onSubmit)} className="mx-auto max-w-[1400px]">
+    <div className="flex flex-col gap-8 pb-20">
+      <form onSubmit={handleSubmit(onSubmit)} className="w-full">
         
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-12">
-          <div className="flex-1 flex justify-start">
+        {/* PAGE HEADER */}
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6 px-2 mb-10">
+          <div className="flex items-center gap-4">
             <Link 
               href="/admin/products" 
-              className="group flex h-12 w-12 items-center justify-center rounded-[1.5rem] bg-white border border-slate-100 transition-colors hover:bg-slate-50"
+              className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm"
             >
-              <ChevronLeft size={20} className="text-slate-600 group-hover:text-[#7171a7]" />
+              <ChevronLeft size={20} />
             </Link>
+            <div>
+              <h1 className="text-3xl md:text-5xl font-light text-[#111827] tracking-tight">Создание</h1>
+              <p className="text-sm text-gray-500 font-medium">Новое решение в каталоге</p>
+            </div>
           </div>
 
-          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
-              Создание решения
-            </h1>
-          </div>
-
-          <div className="flex-1 flex justify-end">
-            <button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="px-10 py-4 bg-[#1e1b4b] text-white rounded-[1.5rem] font-black uppercase text-[10px] tracking-widest hover:bg-[#7171a7] transition-all flex items-center gap-3 disabled:opacity-50"
-            >
-              {isSubmitting && <Loader2 size={14} className="animate-spin" />}
-              Опубликовать
-            </button>
-          </div>
+          <button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="px-8 py-3 bg-[#10b981] text-white rounded-xl text-sm font-bold hover:bg-[#059669] transition-all flex items-center gap-3 shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+          >
+            {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Опубликовать
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
           
-          {/* ЛЕВАЯ КОЛОНКА */}
+          {/* LEFT: MAIN CONTENT */}
           <div className="lg:col-span-8 space-y-6">
-            <section className="rounded-[2.5rem] border border-slate-100 bg-white p-10">
-              <div className="mb-10">
-                <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Основные параметры</h2>
-              </div>
+            <section className="rounded-[2.5rem] bg-white p-8 shadow-soft border border-gray-100">
+              <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8 px-1">Основные параметры</h2>
               
-              <div className="space-y-8">
+              <div className="space-y-6">
                 <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                     <div className="md:col-span-2">
                         <Input 
@@ -140,7 +147,7 @@ export default function CreateProductPage() {
                           placeholder="0"
                           value={watchedValues.price?.replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, " ")}
                           onChange={(e) => setValue("price", e.target.value.replace(/\D/g, ""))}
-                          className={`${lightInput} font-black text-indigo-600`}
+                          className={`${lightInput} font-bold text-[#10b981]`}
                         />
                     </div>
                 </div>
@@ -179,7 +186,7 @@ export default function CreateProductPage() {
                 <Textarea 
                   label="Краткое описание" 
                   rows={2} 
-                  maxLength={60}
+                  maxLength={100}
                   placeholder="Суть решения в двух словах..."
                   {...register("shortDescription")}
                   className={lightInput}
@@ -196,61 +203,89 @@ export default function CreateProductPage() {
             </section>
 
             {showRequirements && (
-              <section className="rounded-[2.5rem] border border-slate-100 bg-white p-10">
-                <h2 className="mb-8 text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Требования для выполнения</h2>
+              <section className="rounded-[2.5rem] bg-white p-8 shadow-soft border border-gray-100 animate-in fade-in slide-in-from-bottom-2">
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 px-1">Требования от клиента</h2>
                 <div className="space-y-4">
                     {fields.map((field, index) => (
-                    <div key={field.id} className="flex gap-4 items-end bg-slate-50 p-6 rounded-[2rem] border border-slate-100">
-                        <div className="flex-1"><Input placeholder="Заголовок" {...register(`requirements.${index}.title` as const)} className="bg-white" /></div>
-                        <div className="flex-[2]"><Input placeholder="Что нужно от клиента?" {...register(`requirements.${index}.details` as const)} className="bg-white" /></div>
-                        <button type="button" onClick={() => remove(index)} className="h-12 w-12 rounded-2xl text-slate-300 hover:text-rose-500 transition-colors">✕</button>
+                    <div key={field.id} className="flex gap-4 items-start bg-gray-50 p-6 rounded-2xl">
+                        <div className="flex-1 space-y-4">
+                          <Input placeholder="Название документа" {...register(`requirements.${index}.title` as const)} className="bg-white border-transparent focus:border-[#10b981]" />
+                          <Input placeholder="Что именно нужно?" {...register(`requirements.${index}.details` as const)} className="bg-white border-transparent focus:border-[#10b981]" />
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => remove(index)} 
+                          className="mt-1 h-10 w-10 shrink-0 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        >
+                          <X size={18} />
+                        </button>
                     </div>
                     ))}
-                    <button type="button" onClick={() => append({ title: "", details: "" })} className="mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#7171a7] hover:opacity-70 transition-all">
-                    <Plus size={16} /> Добавить поле
+                    <button 
+                      type="button" 
+                      onClick={() => append({ title: "", details: "" })} 
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-[#10b981] hover:bg-[#ecfdf5] rounded-lg transition-all"
+                    >
+                      <Plus size={16} /> Добавить параметр
                     </button>
                 </div>
               </section>
             )}
           </div>
 
-          {/* ПРАВАЯ КОЛОНКА */}
+          {/* RIGHT: SETTINGS */}
           <div className="lg:col-span-4 space-y-6">
-            <section className="rounded-[2.5rem] border border-slate-100 bg-white p-8 text-center">
-              <h3 className="mb-6 text-[10px] font-black uppercase tracking-widest text-slate-300">Обложка товара</h3>
-              <input type="file" id="imageInput" className="hidden" accept="image/*" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => setValue("imageUrl", reader.result as string);
-                  reader.readAsDataURL(file);
-                }
-              }} />
-              <label htmlFor="imageInput" className="group relative flex aspect-square w-full cursor-pointer overflow-hidden rounded-[2.5rem] border border-slate-100 bg-slate-50 transition-all items-center justify-center hover:border-[#7171a7]">
+            <section className="rounded-[2.5rem] bg-white p-6 shadow-soft border border-gray-100">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6 text-center">Обложка</h3>
+              <input 
+                type="file" 
+                id="imageInput" 
+                className="hidden" 
+                accept="image/*" 
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setValue("imageUrl", reader.result as string);
+                    reader.readAsDataURL(file);
+                  }
+                }} 
+              />
+              <label 
+                htmlFor="imageInput" 
+                className="group relative flex aspect-square w-full cursor-pointer overflow-hidden rounded-[2rem] bg-gray-50 border-2 border-dashed border-gray-200 transition-all items-center justify-center hover:border-[#10b981] hover:bg-emerald-50/30"
+              >
                 {watchedValues.imageUrl ? (
-                  <img src={watchedValues.imageUrl} className="h-full w-full object-contain p-8" alt="Preview" />
+                  <img src={watchedValues.imageUrl} className="h-full w-full object-contain p-6 transition-transform group-hover:scale-105" alt="Preview" />
                 ) : (
                   <div className="text-center">
-                    <Upload size={32} className="mx-auto text-slate-200 mb-2" />
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Загрузить PNG</span>
+                    <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center mx-auto mb-3 text-gray-300 group-hover:text-[#10b981]">
+                      <Upload size={20} />
+                    </div>
+                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide group-hover:text-gray-500">Загрузить образ</span>
                   </div>
                 )}
               </label>
             </section>
 
-            <section className="rounded-[2.5rem] border border-slate-100 bg-white p-10">
-              <div className="mb-8 flex items-center gap-3">
-                <Palette className="text-slate-300" size={18} />
-                <h2 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Визуализация</h2>
+            <section className="rounded-[2.5rem] bg-white p-8 shadow-soft border border-gray-100">
+              <div className="flex items-center gap-3 mb-8">
+                <Palette className="text-gray-300" size={18} />
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Визуал</h2>
               </div>
+              
               <div className="space-y-6">
-                <div className="flex items-center justify-between bg-slate-50 p-4 rounded-[1.2rem] border border-slate-100">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Цвет фона</span>
-                  <input type="color" {...register("bgColor")} className="h-10 w-10 cursor-pointer rounded-lg border-0 p-0 bg-transparent" />
+                <div className="flex items-center justify-between bg-gray-50 p-4 rounded-xl">
+                  <span className="text-xs font-bold text-gray-500">Цвет фона</span>
+                  <input 
+                    type="color" 
+                    {...register("bgColor")} 
+                    className="h-8 w-8 cursor-pointer rounded-lg border-2 border-white shadow-sm overflow-hidden" 
+                  />
                 </div>
                 
                 <Input 
-                  label="Бейдж" 
+                  label="Текст бейджа" 
                   {...register("badgeText")} 
                   placeholder="NEW, HIT, -20%" 
                   className={lightInput} 
@@ -261,7 +296,7 @@ export default function CreateProductPage() {
                   control={control}
                   render={({ field }) => (
                     <Select 
-                      label="Цвет бейджа" 
+                      label="Стиль бейджа" 
                       options={[
                         {value:'neutral', label:'Стеклянный'}, 
                         {value:'black', label:'Черный'}, 

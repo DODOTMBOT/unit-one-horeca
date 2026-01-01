@@ -10,7 +10,9 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
-  ArrowUpDown
+  ArrowUpDown,
+  MapPin,
+  User
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
@@ -67,28 +69,13 @@ export default function AdminHACCPHealthListPage({ searchParams: searchParamsPro
     return filtered.sort((a, b) => {
       let aValue: any;
       let bValue: any;
-
       switch (sortConfig.key) {
-        case 'name':
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
-          break;
-        case 'city':
-          aValue = a.city.toLowerCase();
-          bValue = b.city.toLowerCase();
-          break;
-        case 'partner':
-          aValue = (a.partner || "").toLowerCase();
-          bValue = (b.partner || "").toLowerCase();
-          break;
-        case 'skips':
-          aValue = a.facilitySkipDays?.length || 0;
-          bValue = b.facilitySkipDays?.length || 0;
-          break;
-        default:
-          return 0;
+        case 'name': aValue = a.name.toLowerCase(); bValue = b.name.toLowerCase(); break;
+        case 'city': aValue = a.city.toLowerCase(); bValue = b.city.toLowerCase(); break;
+        case 'partner': aValue = (a.partner || "").toLowerCase(); bValue = (b.partner || "").toLowerCase(); break;
+        case 'skips': aValue = a.facilitySkipDays?.length || 0; bValue = b.facilitySkipDays?.length || 0; break;
+        default: return 0;
       }
-
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -96,11 +83,10 @@ export default function AdminHACCPHealthListPage({ searchParams: searchParamsPro
   }, [establishments, searchQuery, sortConfig]);
 
   const requestSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
   const getDaysAddition = (count: number) => {
@@ -112,131 +98,136 @@ export default function AdminHACCPHealthListPage({ searchParams: searchParamsPro
   };
 
   if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F1F3F6] gap-4">
-      <Loader2 className="animate-spin text-indigo-500" size={32} />
-      <div className="text-[10px] tracking-[0.3em] font-black uppercase text-indigo-400">Синхронизация HACCP...</div>
+    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+      <Loader2 className="animate-spin text-[#10b981]" size={32} />
+      <div className="text-[10px] tracking-[0.3em] font-bold uppercase text-gray-400">Синхронизация HACCP...</div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F1F3F6] pb-10 font-sans text-[#1e1b4b]">
-      <div className="mx-auto max-w-[1400px] px-4 pt-6">
-        
-        <header className="sticky top-4 z-40 mb-6 flex h-16 items-center justify-between rounded-3xl border border-slate-200 bg-white/90 px-6 backdrop-blur-xl shadow-sm">
-          <div className="flex items-center gap-4 shrink-0">
-            <Link href="/admin/haccp" className="flex h-8 w-8 items-center justify-center rounded-full bg-white border border-slate-100 hover:scale-110 transition-all">
-              <ChevronLeft size={16} className="text-slate-600" />
-            </Link>
-            <h1 className="text-sm font-black uppercase tracking-tighter">Мониторинг здоровья</h1>
+    <div className="flex flex-col gap-8 pb-20">
+      
+      {/* HEADER: Floating Island Style */}
+      <header className="sticky top-0 z-40 flex flex-col md:flex-row items-center justify-between gap-6 py-4 bg-[#F3F4F6]/80 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/haccp" className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm">
+            <ChevronLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-light text-[#111827] tracking-tight">Мониторинг здоровья</h1>
+            <p className="text-sm text-gray-500 font-medium">Контроль заполнения журналов</p>
           </div>
+        </div>
 
-          <div className="relative flex-1 max-w-md mx-6">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
-              type="text"
-              placeholder="Поиск по заведению, адресу, партнеру..."
+              placeholder="Поиск..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border-none rounded-full py-2.5 pl-10 pr-10 text-[10px] font-bold uppercase tracking-wider outline-none focus:ring-2 focus:ring-indigo-100 focus:bg-white transition-all"
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#10b981] transition-all shadow-soft"
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-white p-1 rounded-full border border-slate-100">
-            <Link href={`?month=${prevDate.getMonth()}&year=${prevDate.getFullYear()}`} className="p-2 transition-opacity hover:opacity-60 text-slate-400">
-              <ChevronLeft size={16} />
+          <div className="flex items-center bg-white rounded-xl border border-gray-200 p-1 shadow-soft">
+            <Link href={`?month=${prevDate.getMonth()}&year=${prevDate.getFullYear()}`} className="p-2 hover:text-[#10b981] transition-colors">
+              <ChevronLeft size={18} />
             </Link>
-            <div className="px-4 min-w-[140px] text-center font-black uppercase text-[9px] tracking-widest">
+            <div className="px-4 min-w-[150px] text-center text-[11px] font-bold uppercase tracking-widest text-[#111827]">
               {displayDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}
             </div>
-            <Link href={`?month=${nextDate.getMonth()}&year=${nextDate.getFullYear()}`} className="p-2 transition-opacity hover:opacity-60 text-slate-400">
-              <ChevronRight size={16} />
+            <Link href={`?month=${nextDate.getMonth()}&year=${nextDate.getFullYear()}`} className="p-2 hover:text-[#10b981] transition-colors">
+              <ChevronRight size={18} />
             </Link>
           </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_250px_220px_180px] px-8 mb-2 gap-4">
-          <button onClick={() => requestSort('name')} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors">
-            Заведение <ArrowUpDown size={10} />
-          </button>
-          <button onClick={() => requestSort('city')} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors">
-            Локация <ArrowUpDown size={10} />
-          </button>
-          <button onClick={() => requestSort('partner')} className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors">
-            Партнер <ArrowUpDown size={10} />
-          </button>
-          <button onClick={() => requestSort('skips')} className="flex items-center justify-end gap-2 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors pr-4">
-            Пропуски <ArrowUpDown size={10} />
-          </button>
         </div>
+      </header>
 
-        <div className="flex flex-col gap-2">
-          {processedEst.map((est: any) => {
-            const skipsCount = est.facilitySkipDays?.length || 0;
-
-            return (
-              <Link 
-                key={est.id} 
-                href={`/partner/establishments/${est.id}/health`}
-                className="group grid grid-cols-1 lg:grid-cols-[1fr_250px_220px_180px] items-center gap-4 p-4 px-6 rounded-2xl border border-white bg-white/70 hover:bg-white hover:border-indigo-100 hover:shadow-md transition-all backdrop-blur-sm"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-all
-                    ${est.isFilledToday 
-                      ? "bg-emerald-50 border-emerald-100 text-emerald-500" 
-                      : "bg-rose-50 border-rose-100 text-rose-500"}`}>
-                    {est.isFilledToday ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <h4 className="text-[13px] font-black uppercase tracking-tight truncate group-hover:text-indigo-600 transition-colors leading-tight">
-                      {est.name}
-                    </h4>
-                    <span className={`text-[9px] font-bold uppercase tracking-widest mt-0.5 ${est.isFilledToday ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {est.isFilledToday ? 'Заполнено сегодня' : 'Пропущено сегодня'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-tighter truncate text-slate-700 leading-tight">
-                    {est.city}
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 truncate tracking-tight">
-                    {est.address || "—"}
-                  </span>
-                </div>
-
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[10px] font-black uppercase tracking-tighter truncate text-slate-700 leading-tight">
-                    {est.partner || "Система"}
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Владелец</span>
-                </div>
-
-                <div className="flex flex-col items-end pr-4">
-                  <span className={`text-[12px] font-black uppercase tracking-tighter leading-tight ${skipsCount > 0 ? "text-rose-500" : "text-emerald-500"}`}>
-                    {skipsCount > 0 ? `${skipsCount} ${getDaysAddition(skipsCount)}` : 'Чисто'}
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">За месяц</span>
-                </div>
-              </Link>
-            );
-          })}
-
-          {processedEst.length === 0 && (
-            <div className="py-20 text-center rounded-[32px] border-2 border-dashed border-slate-200 bg-white/40">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Результатов не найдено</p>
-            </div>
-          )}
-        </div>
-
-        <div className="mt-12 flex justify-between items-center opacity-40 px-4">
-          <p className="text-[10px] font-black uppercase tracking-[0.4em]">Unit One Ecosystem v.2.4</p>
-          <div className="flex gap-4 items-center">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Admin Live View</span>
-          </div>
-        </div>
+      {/* TABLE HEADERS */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_200px_200px_150px] px-8 gap-4">
+        <button onClick={() => requestSort('name')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Заведение <ArrowUpDown size={12} />
+        </button>
+        <button onClick={() => requestSort('city')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Локация <ArrowUpDown size={12} />
+        </button>
+        <button onClick={() => requestSort('partner')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Партнер <ArrowUpDown size={12} />
+        </button>
+        <button onClick={() => requestSort('skips')} className="flex items-center justify-end gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Пропуски <ArrowUpDown size={12} />
+        </button>
       </div>
+
+      {/* LIST CONTENT */}
+      <div className="flex flex-col gap-3">
+        {processedEst.map((est: any) => {
+          const skipsCount = est.facilitySkipDays?.length || 0;
+          return (
+            <Link 
+              key={est.id} 
+              href={`/partner/office/establishments/${est.id}/health`}
+              className="group grid grid-cols-1 lg:grid-cols-[1fr_200px_200px_150px] items-center gap-4 p-5 px-8 bg-white rounded-[2rem] border border-transparent shadow-soft hover:shadow-xl hover:border-[#10b981]/30 transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-5 min-w-0">
+                <div className={`w-12 h-12 shrink-0 flex items-center justify-center rounded-2xl border transition-all
+                  ${est.isFilledToday 
+                    ? "bg-[#ecfdf5] border-[#d1fae5] text-[#10b981]" 
+                    : "bg-rose-50 border-rose-100 text-rose-500"}`}>
+                  {est.isFilledToday ? <CheckCircle2 size={24} /> : <AlertCircle size={24} />}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <h4 className="text-[15px] font-bold text-[#111827] truncate group-hover:text-[#10b981] transition-colors">
+                    {est.name}
+                  </h4>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${est.isFilledToday ? 'text-[#10b981]' : 'text-rose-500'}`}>
+                    {est.isFilledToday ? 'Заполнено сегодня' : 'Пропущено сегодня'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 text-gray-700">
+                  <MapPin size={12} className="text-gray-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-tight truncate">{est.city}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 truncate mt-0.5">{est.address || "—"}</span>
+              </div>
+
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 text-gray-700">
+                  <User size={12} className="text-gray-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-tight truncate">{est.partner || "Система"}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Владелец</span>
+              </div>
+
+              <div className="flex flex-col items-end">
+                <span className={`text-[14px] font-bold leading-tight ${skipsCount > 0 ? "text-rose-500" : "text-[#10b981]"}`}>
+                  {skipsCount > 0 ? `${skipsCount} ${getDaysAddition(skipsCount)}` : 'Чисто'}
+                </span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">За месяц</span>
+              </div>
+            </Link>
+          );
+        })}
+
+        {processedEst.length === 0 && (
+          <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-gray-200 shadow-soft">
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Результатов не найдено</p>
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <footer className="mt-12 flex justify-between items-center px-4 opacity-60">
+        <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-400">Unit One Ecosystem v.2.4</p>
+        <div className="flex gap-4 items-center">
+          <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse shadow-[0_0_8px_#10b981]" />
+          <span className="text-[9px] font-bold uppercase tracking-widest text-[#10b981]">Admin Live View</span>
+        </div>
+      </footer>
     </div>
   );
 }

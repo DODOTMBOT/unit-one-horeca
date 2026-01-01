@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { 
   Plus, Trash2, Edit2, ImageIcon, Loader2, 
-  Globe, ArrowLeft, LogOut, CheckCircle2, GripVertical
+  Globe, ArrowLeft, LogOut, GripVertical, CheckCircle2, XCircle
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -96,195 +96,195 @@ export default function DirectionsAdmin() {
   };
 
   if (loading) return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC]">
-      <Loader2 className="h-6 w-6 animate-spin text-[#1e1b4b]" />
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <Loader2 className="animate-spin text-[#10b981]" size={32} />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
-      <div className="max-w-[1200px] mx-auto">
-        
-        {/* TOP INTERFACE BAR */}
-        <div className="flex items-center justify-between mb-20">
-          <div className="flex-1 hidden md:flex justify-start">
-             <button onClick={() => router.push('/admin')} className="w-12 h-12 bg-white border border-slate-100 rounded-[1.2rem] flex items-center justify-center text-slate-400 hover:text-[#1e1b4b] transition-colors shadow-sm">
-                <ArrowLeft size={18} />
-             </button>
-          </div>
-
-          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none">
-              Управление экосистемой
-            </h1>
-          </div>
-
-          <div className="flex-1 flex items-center justify-end gap-2">
-            <Link href="/admin" className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50 shadow-sm">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Админка</p>
-            </Link>
-            <Link href="/api/auth/signout" className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors shadow-sm">
-              <LogOut size={18} />
-            </Link>
+    <div className="flex flex-col gap-8 pb-20">
+      
+      {/* HEADER: Вернуться назад + Заголовок */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/settings" className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all">
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold text-[#111827]">Экосистема</h1>
+            <p className="text-sm text-gray-500">Управление направлениями платформы</p>
           </div>
         </div>
+      </div>
 
-        {/* FORM SECTION */}
-        <div className="bg-white rounded-[2.5rem] p-10 border border-slate-100 shadow-sm mb-12">
-          <div className="mb-10 flex items-center gap-3">
-             <div className="h-1 w-8 bg-indigo-500 rounded-full" />
-             <h2 className="text-2xl font-black uppercase tracking-tight text-[#1e1b4b]">
-               {isEditing ? "Редактирование проекта" : "Новое направление"}
-             </h2>
-          </div>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
+        
+        {/* LEFT COLUMN: FORM */}
+        <div className="xl:col-span-1 bg-white p-6 rounded-2xl shadow-soft sticky top-24">
+          <h2 className="text-lg font-bold text-[#111827] mb-6">
+            {isEditing ? "Редактирование" : "Новое направление"}
+          </h2>
           
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-            {/* LEFT: IMAGE UPLOAD */}
-            <div className="lg:col-span-3 flex flex-col items-center gap-4">
-               <div className="relative group w-full aspect-square bg-[#F8FAFC] rounded-[2rem] border border-slate-100 flex flex-col items-center justify-center overflow-hidden transition-all hover:border-indigo-200 shadow-inner">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+            
+            {/* Image Upload */}
+            <div className="flex justify-center">
+               <div className="relative group w-32 h-32 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center overflow-hidden hover:border-[#10b981] transition-colors cursor-pointer">
                   {formData.imageUrl ? (
-                    <Image src={formData.imageUrl} alt="Preview" fill className="object-contain p-8" />
+                    <div className="relative w-full h-full p-4">
+                       <Image src={formData.imageUrl} alt="Preview" fill className="object-contain" />
+                    </div>
                   ) : (
-                    <ImageIcon className="text-slate-200" size={40} />
+                    <ImageIcon className="text-gray-300 group-hover:text-[#10b981]" size={24} />
                   )}
                   <input type="file" onChange={handleFileUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
-                  {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>}
-               </div>
-               <p className="text-[10px] font-black uppercase tracking-widest text-slate-300">SVG / PNG / 512px</p>
-            </div>
-
-            {/* RIGHT: INPUTS */}
-            <div className="lg:col-span-9 space-y-6">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Название (LATIN)</label>
-                    <input 
-                      className="w-full bg-[#F8FAFC] border-transparent border focus:border-indigo-100 rounded-[1.2rem] px-6 py-4 text-sm font-bold text-[#1e1b4b] outline-none transition-all" 
-                      value={formData.title} 
-                      onChange={e => setFormData({...formData, title: e.target.value})} 
-                      placeholder="Напр. HUNTER"
-                      required 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Заголовок (RU)</label>
-                    <input 
-                      className="w-full bg-[#F8FAFC] border-transparent border focus:border-indigo-100 rounded-[1.2rem] px-6 py-4 text-sm font-bold text-[#1e1b4b] outline-none transition-all" 
-                      value={formData.subtitle} 
-                      onChange={e => setFormData({...formData, subtitle: e.target.value})} 
-                      placeholder="Напр. Менеджер офиса"
-                    />
-                  </div>
-               </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Внутренняя ссылка (Route)</label>
-                    <input 
-                      className="w-full bg-[#F8FAFC] border-transparent border focus:border-indigo-100 rounded-[1.2rem] px-6 py-4 text-sm font-bold text-[#1e1b4b] outline-none transition-all" 
-                      value={formData.href} 
-                      onChange={e => setFormData({...formData, href: e.target.value})} 
-                      placeholder="/admin/something"
-                      required={!formData.isComingSoon} 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-4">Порядок</label>
-                    <input 
-                      type="number"
-                      className="w-full bg-[#F8FAFC] border-transparent border focus:border-indigo-100 rounded-[1.2rem] px-6 py-4 text-sm font-bold text-[#1e1b4b] outline-none transition-all" 
-                      value={formData.order} 
-                      onChange={e => setFormData({...formData, order: parseInt(e.target.value) || 0})} 
-                    />
-                  </div>
-               </div>
-
-               <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6">
-                  <button 
-                    type="button"
-                    onClick={() => setFormData(p => ({...p, isComingSoon: !p.isComingSoon}))}
-                    className={`px-6 py-3 rounded-full border text-[10px] font-black uppercase tracking-widest transition-all ${formData.isComingSoon ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-slate-50 border-slate-100 text-slate-400'}`}
-                  >
-                    {formData.isComingSoon ? "● Mode: Coming Soon" : "○ Mode: Active"}
-                  </button>
-
-                  <div className="flex gap-2 w-full sm:w-auto">
-                    {isEditing && (
-                      <button type="button" onClick={() => { setIsEditing(null); setFormData(initialForm); }} className="px-8 py-4 bg-slate-50 text-slate-400 rounded-[1.2rem] text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">
-                        Отмена
-                      </button>
-                    )}
-                    <button type="submit" className="flex-1 sm:flex-none px-12 py-4 bg-[#1e1b4b] text-white rounded-[1.2rem] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-indigo-900 transition-all shadow-lg shadow-indigo-900/10">
-                      {isEditing ? "Сохранить изменения" : "Добавить в экосистему"}
-                    </button>
-                  </div>
+                  {uploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center"><Loader2 className="animate-spin text-[#10b981]" /></div>}
                </div>
             </div>
+
+            {/* Inputs */}
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 mb-1 block">Название (ID)</label>
+                <input 
+                  className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-[#10b981] rounded-xl px-4 py-3 text-sm font-medium text-[#111827] outline-none transition-all placeholder:text-gray-400" 
+                  value={formData.title} 
+                  onChange={e => setFormData({...formData, title: e.target.value})} 
+                  placeholder="Напр. HUNTER"
+                  required 
+                />
+              </div>
+              
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 mb-1 block">Заголовок (RU)</label>
+                <input 
+                  className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-[#10b981] rounded-xl px-4 py-3 text-sm font-medium text-[#111827] outline-none transition-all placeholder:text-gray-400" 
+                  value={formData.subtitle} 
+                  onChange={e => setFormData({...formData, subtitle: e.target.value})} 
+                  placeholder="Напр. Менеджер офиса"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 mb-1 block">Ссылка</label>
+                  <input 
+                    className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-[#10b981] rounded-xl px-4 py-3 text-sm font-medium text-[#111827] outline-none transition-all placeholder:text-gray-400" 
+                    value={formData.href} 
+                    onChange={e => setFormData({...formData, href: e.target.value})} 
+                    placeholder="/path"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1 mb-1 block">Sort</label>
+                  <input 
+                    type="number"
+                    className="w-full bg-gray-50 border border-transparent focus:bg-white focus:border-[#10b981] rounded-xl px-4 py-3 text-sm font-medium text-[#111827] outline-none transition-all text-center" 
+                    value={formData.order} 
+                    onChange={e => setFormData({...formData, order: parseInt(e.target.value) || 0})} 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Toggles */}
+            <div 
+              onClick={() => setFormData(p => ({...p, isComingSoon: !p.isComingSoon}))}
+              className={`flex items-center justify-between p-3 rounded-xl cursor-pointer border transition-all ${formData.isComingSoon ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-transparent hover:bg-gray-100'}`}
+            >
+              <span className={`text-xs font-bold uppercase tracking-wide ${formData.isComingSoon ? 'text-amber-700' : 'text-gray-500'}`}>
+                Статус "Скоро"
+              </span>
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center ${formData.isComingSoon ? 'bg-amber-500 text-white' : 'bg-gray-300'}`}>
+                {formData.isComingSoon && <CheckCircle2 size={12} />}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-2">
+              {isEditing && (
+                <button 
+                  type="button" 
+                  onClick={() => { setIsEditing(null); setFormData(initialForm); }} 
+                  className="px-4 py-3 bg-gray-100 text-gray-500 rounded-xl text-sm font-bold hover:bg-gray-200 transition-colors"
+                >
+                  Отмена
+                </button>
+              )}
+              <button 
+                type="submit" 
+                className="flex-1 px-6 py-3 bg-[#10b981] text-white rounded-xl text-sm font-bold hover:bg-[#059669] transition-all shadow-lg shadow-emerald-500/20"
+              >
+                {isEditing ? "Сохранить" : "Создать"}
+              </button>
+            </div>
+
           </form>
         </div>
 
-        {/* COMPACT LIST SECTION */}
-        <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-          <div className="bg-slate-50/50 px-8 py-4 border-b border-slate-100 flex items-center justify-between">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Список направлений ({directions.length})</h3>
-            <div className="flex gap-8">
-               <span className="text-[9px] font-bold uppercase text-slate-300">Статус</span>
-               <span className="text-[9px] font-bold uppercase text-slate-300 mr-24">Действия</span>
+        {/* RIGHT COLUMN: LIST */}
+        <div className="xl:col-span-2 space-y-4">
+          {directions.length === 0 ? (
+            <div className="bg-white p-12 rounded-2xl text-center shadow-soft">
+              <p className="text-gray-400 font-medium">Список пока пуст</p>
             </div>
-          </div>
-          
-          <div className="divide-y divide-slate-50">
-            {directions.sort((a,b) => a.order - b.order).map((d) => (
-              <div key={d.id} className="group flex items-center justify-between px-8 py-4 hover:bg-slate-50/30 transition-colors">
-                
-                <div className="flex items-center gap-6">
-                  <div className="w-4 text-slate-200 group-hover:text-slate-300 transition-colors">
-                    <GripVertical size={14} />
-                  </div>
-                  <div className="w-12 h-12 bg-white rounded-xl border border-slate-100 flex items-center justify-center p-2 group-hover:scale-110 transition-transform">
-                    {d.imageUrl ? <img src={d.imageUrl} className="w-full h-full object-contain" alt="" /> : <Globe size={18} className="text-slate-100"/>}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-black uppercase tracking-tight text-[#1e1b4b]">{d.title}</span>
-                      <span className="text-[9px] font-bold text-slate-300 px-2 border border-slate-100 rounded-md">#{d.order}</span>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-soft overflow-hidden">
+              {directions.sort((a,b) => a.order - b.order).map((d, i) => (
+                <div 
+                  key={d.id} 
+                  className={`
+                    group flex items-center justify-between p-4 hover:bg-gray-50 transition-colors
+                    ${i !== directions.length - 1 ? 'border-b border-gray-100' : ''}
+                  `}
+                >
+                  {/* Info */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-gray-300 cursor-grab active:cursor-grabbing hover:text-gray-500 p-2">
+                      <GripVertical size={16} />
                     </div>
-                    <p className="text-[11px] font-medium text-slate-400">{d.subtitle}</p>
-                  </div>
-                </div>
+                    
+                    <div className="w-12 h-12 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-center p-2">
+                      {d.imageUrl ? (
+                        <Image src={d.imageUrl} width={32} height={32} alt="" className="object-contain" />
+                      ) : (
+                        <Globe size={20} className="text-gray-300" />
+                      )}
+                    </div>
 
-                <div className="flex items-center gap-12">
-                  <div className="w-24 flex justify-center">
-                    {d.isComingSoon ? (
-                      <span className="text-[8px] font-black uppercase bg-amber-50 text-amber-500 px-3 py-1 rounded-full border border-amber-100">Coming Soon</span>
-                    ) : (
-                      <span className="text-[8px] font-black uppercase bg-emerald-50 text-emerald-500 px-3 py-1 rounded-full border border-emerald-100">Active</span>
-                    )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-[#111827]">{d.subtitle}</span>
+                        {d.isComingSoon && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-600">Soon</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                        <span className="font-mono bg-gray-100 px-1.5 rounded text-gray-500">#{d.order}</span>
+                        <span>{d.title}</span>
+                        <span className="text-gray-300">•</span>
+                        <span className="font-mono">{d.href}</span>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="flex gap-2">
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                       onClick={() => { setIsEditing(d.id); setFormData({...d, subtitle: d.subtitle || ""}); window.scrollTo({top: 0, behavior: 'smooth'}); }} 
-                      className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#10b981] hover:bg-[#ecfdf5] transition-colors"
                     >
-                      <Edit2 size={14} />
+                      <Edit2 size={16} />
                     </button>
                     <button 
                       onClick={() => deleteDirection(d.id)} 
-                      className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:border-rose-100 transition-all shadow-sm"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-
-              </div>
-            ))}
-          </div>
-          
-          {directions.length === 0 && (
-            <div className="p-20 text-center">
-               <p className="text-xs font-bold text-slate-300 uppercase tracking-widest">Проекты не найдены</p>
+              ))}
             </div>
           )}
         </div>

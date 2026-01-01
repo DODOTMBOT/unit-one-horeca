@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import Link from "next/link";
 import "./globals.css";
 import { getServerSession } from "next-auth"; 
 import { authOptions } from "@/lib/auth";     
@@ -10,7 +9,8 @@ import { NextAuthProvider } from '@/components/Providers';
 import UserNav from '@/components/UserNav'; 
 import HeaderCartBtn from "@/components/cart/HeaderCartBtn";
 import HeaderNavbar from "@/components/HeaderNavbar";
-import HeaderWrapper from "@/components/HeaderWrapper"; // Импортируем твой воппер
+import HeaderWrapper from "@/components/HeaderWrapper";
+import { Search } from 'lucide-react'; 
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -19,8 +19,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "HoReCa Solutions",
-  description: "Магазин управленческих решений HoReCa",
+  title: "Unit One Ecosystem",
 };
 
 export default async function RootLayout({
@@ -41,7 +40,7 @@ export default async function RootLayout({
     cartCount = user?.cart?.items.length || 0;
   }
 
-  // Логика меню
+  // Меню
   const menuItems = await prisma.menuItem.findMany({
     where: {
       parentId: null,
@@ -58,58 +57,66 @@ export default async function RootLayout({
   });
 
   return (
-    <html lang="ru" suppressHydrationWarning>
-      <body className={`${inter.variable} bg-white text-[#1e1b4b] antialiased selection:bg-indigo-100`}>
+    <html lang="ru">
+      <body className={`${inter.variable} bg-[#F3F4F6] text-slate-900 h-screen w-screen flex flex-col overflow-hidden font-sans`}>
         <NextAuthProvider>
           
-          {/* ХЕДЕР: Оборачиваем в HeaderWrapper, чтобы он исчезал в /partner */}
-          <HeaderWrapper>
-            <header className="fixed inset-x-0 top-6 z-50 flex justify-center px-6 pointer-events-none">
-              <div className="w-full max-w-[1400px] h-20 bg-white/80 backdrop-blur-xl rounded-full px-10 flex items-center justify-between pointer-events-auto border border-slate-100 shadow-[0_8px_32px_rgba(30,27,75,0.04)]">
+          {/* HEADER CONTAINER: Парящий слой */}
+          <div className="absolute top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4 pointer-events-none">
+            <HeaderWrapper>
+              {/* ЧЕРНАЯ КАПСУЛА: bg-[#1F2937] */}
+              <header className="pointer-events-auto bg-[#1F2937] text-white h-[68px] w-full max-w-[1200px] rounded-full shadow-2xl flex items-center justify-between px-3 pl-6 transition-all">
                 
-                <Link href="/" className="text-base font-black tracking-tighter uppercase text-[#1e1b4b] shrink-0 hover:opacity-70 transition-opacity">
-                  HoReCa.Solutions
-                </Link>
-
-                <HeaderNavbar menuItems={menuItems} />
-                
-                <div className="flex items-center gap-6 shrink-0">
-                   <div className="hover:scale-110 transition-transform duration-300">
-                      <HeaderCartBtn count={cartCount} />
-                   </div>
-                   <div className="w-px h-6 bg-slate-100" />
-                   <UserNav />
+                {/* ЛЕВАЯ ЧАСТЬ: Лого + Меню */}
+                <div className="flex items-center gap-8">
+                  {/* Бренд */}
+                  <div className="font-bold tracking-wider text-sm flex items-center gap-2 text-white uppercase">
+                    <div className="w-2.5 h-2.5 rounded-full bg-[#a3e635] shadow-[0_0_12px_#a3e635]" />
+                    UNIT-ONE.RU
+                  </div>
+                  
+                  {/* МЕНЮ: Стили для ссылок внутри черного хедера */}
+                  <div className="hidden md:block">
+                    {/* Мы передаем menuItems в компонент. 
+                       Сам компонент HeaderNavbar должен использовать классы, которые мы здесь задаем или наследует цвет текста.
+                       Здесь задаем контекст белого текста и ховера.
+                    */}
+                    <div className="text-gray-300 hover:text-white [&_a]:transition-colors [&_a:hover]:text-[#a3e635]">
+                      <HeaderNavbar menuItems={menuItems} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </header>
-          </HeaderWrapper>
 
-          {/* КОНТЕНТ: Убрали жесткий pt-32, заменили на умный отступ через HeaderWrapper */}
-          <div className="w-full min-h-screen bg-white">
-            <main className="w-full">
-              {/* Этот блок даст отступ под хедер везде, КРОМЕ страниц /partner */}
-              <HeaderWrapper>
-                <div className="h-32 w-full" />
-              </HeaderWrapper>
-              
+                {/* ПРАВАЯ ЧАСТЬ: Иконки и Профиль */}
+                <div className="flex items-center gap-3 pr-1">
+                   {/* Поиск */}
+                   <button className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
+                      <Search size={20} />
+                   </button>
+
+                   {/* Корзина */}
+                   <div className="text-white hover:text-[#a3e635] transition-colors">
+                      <HeaderCartBtn count={cartCount} /> 
+                   </div>
+
+                   {/* Разделитель */}
+                   <div className="h-6 w-px bg-gray-600 mx-1" />
+
+                   {/* Профиль */}
+                   <div className="pl-1">
+                      <UserNav />
+                   </div>
+                </div>
+              </header>
+            </HeaderWrapper>
+          </div>
+
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 w-full h-full pt-28 pb-10 px-4 md:px-8 overflow-y-auto no-scrollbar">
+            <main className="max-w-[1200px] mx-auto min-h-full">
               {children}
             </main>
           </div>
-
-          {/* ФУТЕР: Оборачиваем в HeaderWrapper */}
-          <HeaderWrapper>
-            <footer className="border-t border-slate-50 bg-white py-24 px-12 text-[10px] font-black uppercase tracking-[0.4em] text-slate-300 mt-20">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-8 max-w-[1400px] mx-auto">
-                <div className="tracking-tighter text-[#1e1b4b] opacity-20">
-                  © 2025 HoReCa Solutions
-                </div>
-                <div className="flex gap-16">
-                  <Link href="/" className="hover:text-indigo-500 transition-all">Методология</Link>
-                  <Link href="/" className="hover:text-indigo-500 transition-all">Поддержка</Link>
-                </div>
-              </div>
-            </footer>
-          </HeaderWrapper>
           
         </NextAuthProvider>
       </body>

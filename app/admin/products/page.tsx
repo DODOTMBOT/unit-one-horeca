@@ -2,7 +2,20 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { 
+  ChevronLeft, Plus, Edit, Layers, 
+  Tags, ShoppingBag, ArrowUpRight, Package 
+} from "lucide-react";
+
+// Хелпер для иконок
+const getIcon = (href: string) => {
+  if (href.includes('create')) return Plus;
+  if (href.includes('manage')) return Edit;
+  if (href.includes('categories')) return Layers;
+  if (href.includes('types')) return Tags;
+  if (href.includes('orders')) return ShoppingBag;
+  return Package;
+};
 
 export default async function ProductsHubPage() {
   const session = await getServerSession(authOptions);
@@ -40,55 +53,64 @@ export default async function ProductsHubPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
-      <div className="max-w-[1400px] mx-auto">
-        
-        {/* HEADER В СТИЛЕ ГЛАВНОГО ХАБА */}
-        <div className="flex items-center justify-between mb-20">
-          <div className="flex-1 flex justify-start">
-            <Link 
-              href="/admin" 
-              className="group flex h-12 w-12 items-center justify-center rounded-[1.5rem] bg-white border border-slate-100 transition-colors hover:bg-slate-50"
-            >
-              <ChevronLeft size={20} className="text-slate-600 group-hover:text-[#7171a7]" />
-            </Link>
-          </div>
-
-          <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
-              Управление товарами
+    <div className="flex flex-col gap-10 pb-20">
+      
+      {/* PAGE HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6 px-2">
+        <div className="flex items-center gap-4">
+          {/* Кнопка Назад */}
+          <Link 
+            href="/admin" 
+            className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm"
+          >
+            <ChevronLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-3xl md:text-5xl font-light text-[#111827] tracking-tight">
+              Маркетплейс
             </h1>
+            <p className="text-gray-500 font-medium mt-2 ml-1">
+              Управление каталогом и продажами
+            </p>
           </div>
-
-          <div className="flex-1 hidden md:flex" />
         </div>
+      </div>
 
-        {/* GRID: 4 КОЛОНКИ, КАК В ГЛАВНОМ ХАБЕ */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {productLinks.map((link, idx) => (
-            <Link key={idx} href={link.href} className="no-underline">
-              <div className="group relative h-full min-h-[180px] p-8 rounded-[2.5rem] border border-slate-100 bg-white hover:border-[#7171a7] transition-all duration-300">
-                <h3 className="text-lg font-black leading-tight mb-3 tracking-tight text-[#1e1b4b]">
-                  {link.name}
-                </h3>
-                <p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider leading-relaxed opacity-60">
-                  {link.description}
-                </p>
+      {/* GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {productLinks.map((link, idx) => {
+          const Icon = getIcon(link.href);
+
+          return (
+            <Link key={idx} href={link.href} className="no-underline group">
+              <div className="relative h-64 p-8 bg-white rounded-[2.5rem] shadow-soft hover:shadow-xl border border-transparent hover:border-[#10b981] flex flex-col justify-between transition-all duration-300">
+                
+                {/* TOP: Icons */}
+                <div className="flex justify-between items-start">
+                  {/* Main Icon */}
+                  <div className="w-12 h-12 rounded-2xl bg-gray-50 text-gray-400 flex items-center justify-center group-hover:bg-[#10b981] group-hover:text-white transition-colors duration-300">
+                    <Icon size={24} strokeWidth={1.5} />
+                  </div>
+                  
+                  {/* Arrow Icon */}
+                  <div className="w-10 h-10 rounded-full border border-gray-100 flex items-center justify-center text-gray-300 group-hover:border-black group-hover:text-black transition-all">
+                    <ArrowUpRight size={18} />
+                  </div>
+                </div>
+
+                {/* BOTTOM: Text */}
+                <div>
+                  <h3 className="text-xl font-bold text-[#111827] mb-2 group-hover:translate-x-1 transition-transform">
+                    {link.name}
+                  </h3>
+                  <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-[90%] uppercase tracking-wide">
+                    {link.description}
+                  </p>
+                </div>
               </div>
             </Link>
-          ))}
-        </div>
-
-        {/* FOOTER */}
-        <div className="mt-32 pt-10 border-t border-slate-100 flex justify-between items-center">
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-300">Unit One Ecosystem v.2.4</p>
-          <div className="flex gap-4 items-center">
-             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">
-               Режим редактирования активен
-             </span>
-          </div>
-        </div>
+          );
+        })}
       </div>
     </div>
   );

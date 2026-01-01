@@ -1,379 +1,234 @@
 "use client";
 
-import React, { useState, useEffect, use, Fragment } from "react";
-import { ArrowLeft, Loader2, ChevronLeft, ChevronRight, Download, Home, Calendar } from "lucide-react";
+import { useState, useEffect, use, useMemo } from "react";
 import Link from "next/link";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Search, 
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  ArrowUpDown,
+  MapPin,
+  User,
+  Thermometer
+} from "lucide-react";
 import { useSession } from "next-auth/react";
-import * as XLSX from "xlsx";
 
-interface PageProps {
-  params: Promise<{ id: string }>;
-}
+type SortConfig = {
+  key: string;
+  direction: 'asc' | 'desc';
+};
 
-export default function AdminMonthlyTemperatureLog({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const id = resolvedParams.id;
+export default function AdminHACCPTemperatureListPage({ searchParams: searchParamsPromise }: any) {
   const { data: session } = useSession() as any;
+  const params = use(searchParamsPromise) as any;
   
-  const [viewDate, setViewDate] = useState(new Date());
-  const [equipment, setEquipment] = useState<any[]>([]);
-  const [establishmentInfo, setEstablishmentInfo] = useState<{name: string, address: string} | null>(null);
+  const [establishments, setEstablishments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  const [logs, setLogs] = useState<Record<string, Record<number, Record<number, {value: string, inspector: string}>>>>({});
-  const [activeCell, setActiveCell] = useState<{equipId: string, day: number, shift: number} | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const currentMonth = params.month ? parseInt(params.month) : new Date().getMonth();
+  const currentYear = params.year ? parseInt(params.year) : new Date().getFullYear();
 
-  const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
-  const monthName = viewDate.toLocaleString('ru-RU', { month: 'long' });
+  const displayDate = new Date(currentYear, currentMonth, 1);
+  const prevDate = new Date(currentYear, currentMonth - 1, 1);
+  const nextDate = new Date(currentYear, currentMonth + 1, 1);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        // Используем админский эндпоинт для получения инфо о заведении
-        const res = await fetch(`/api/admin/establishments/${id}`);
-        let currentEquip: any[] = [];
-        
-        if (res.ok) {
-          const data = await res.json();
-          setEstablishmentInfo({
-            name: data.name || "Название не указано",
-            address: data.address || "Адрес не указан"
-          });
-          currentEquip = Array.isArray(data.equipment) ? data.equipment : [];
-          setEquipment(currentEquip);
-        }
-        
-        const year = viewDate.getFullYear();
-        const month = viewDate.getMonth();
-        // Используем админский эндпоинт для логов (чтобы видеть данные любого ресторана)
-        const logsRes = await fetch(`/api/admin/haccp/temperature/monthly?establishmentId=${id}&year=${year}&month=${month}`);
-        
-        if (logsRes.ok) {
-          const logsData = await logsRes.json();
-          const formatted: any = {};
-          currentEquip.forEach(eq => { formatted[eq.id] = {}; });
-          
-          (Array.isArray(logsData) ? logsData : []).forEach((log: any) => {
-            const d = new Date(log.date).getDate();
-            const shift = log.shift;
-            if (formatted[log.equipmentId]) {
-              if (!formatted[log.equipmentId][d]) formatted[log.equipmentId][d] = {};
-              formatted[log.equipmentId][d][shift] = {
-                value: log.value?.toString() || "",
-                inspector: log.inspectorSurname || ""
-              };
-            }
-          });
-          setLogs(formatted);
-        }
-      } catch (err) { 
-        console.error(err); 
-      } finally { 
-        setLoading(false); 
-      }
-    };
-    loadData();
-  }, [id, viewDate]);
-
-  const saveTemperature = async (equipId: string, day: number, shift: number, value: string) => {
-    const cleanValue = value.replace(',', '.').trim();
-    if (cleanValue === "") return;
-    
-    const userId = session?.user?.id;
-    const inspectorName = session?.user?.surname || "Администратор";
-
-    if (!userId) return;
-
-    const saveDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-    saveDate.setHours(0, 0, 0, 0);
-
-    setLogs(prev => ({
-      ...prev,
-      [equipId]: {
-        ...(prev[equipId] || {}),
-        [day]: {
-          ...(prev[equipId]?.[day] || {}),
-          [shift]: { value: cleanValue, inspector: inspectorName }
-        }
-      }
-    }));
-    setActiveCell(null);
-
+  const fetchSummary = async () => {
+    setLoading(true);
     try {
-      // Админ тоже может вносить правки через админский API
-      await fetch("/api/admin/haccp/temperature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          establishmentId: id,
-          equipmentId: equipId,
-          value: cleanValue,
-          shift: Number(shift),
-          date: saveDate.toISOString(),
-          userId: userId
-        })
+      // Фетчим данные через админский эндпоинт (type=temperature)
+      const res = await fetch(`/api/admin/haccp/summary?month=${currentMonth}&year=${currentYear}&type=temperature`, {
+        cache: 'no-store'
       });
-    } catch (e) { console.error(e); }
-  };
-
-  const getTempStatus = (value: string, type: string): "ok" | "warning" | "critical" | "none" => {
-    const val = parseFloat(value.replace(',', '.'));
-    if (isNaN(val)) return "none";
-    const deviceType = type?.toLowerCase();
-    if (deviceType === 'морозильное') return val <= -15 ? "ok" : "critical";
-    if (val >= 2 && val <= 6) return "ok";
-    if ((val >= 0 && val < 2) || (val > 6 && val < 8)) return "warning";
-    return "critical";
-  };
-
-  const handleExportExcel = () => {
-    const rows: any[][] = [];
-    const h1 = ["Оборудование", "Смена"];
-    for (let d = 1; d <= daysInMonth; d++) { h1.push(d.toString()); }
-    rows.push(h1);
-    equipment.forEach(e => {
-      const rowMorning = [e.name.toUpperCase(), "УТРО"];
-      const rowEvening = ["", "ВЕЧЕР"];
-      for (let d = 1; d <= daysInMonth; d++) {
-        rowMorning.push(logs[e.id]?.[d]?.[0]?.value || "-");
-        rowEvening.push(logs[e.id]?.[d]?.[1]?.value || "-");
+      if (res.ok) {
+        const data = await res.json();
+        setEstablishments(data);
       }
-      rows.push(rowMorning, rowEvening);
-    });
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Temperature Log");
-    XLSX.writeFile(wb, `Admin_TempLog_${establishmentInfo?.name || id}_${monthName}.xlsx`);
-  };
-
-  if (loading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#F1F3F6] gap-4">
-      <Loader2 className="animate-spin text-indigo-500" size={32} />
-      <div className="text-[10px] tracking-[0.3em] font-black uppercase text-indigo-400">Синхронизация HACCP...</div>
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen bg-[#F1F3F6] font-sans text-[#1e1b4b] pb-20">
-      <div className="max-w-[1400px] mx-auto px-6 py-8">
-        
-        <header className="flex flex-col md:flex-row justify-between items-center gap-4 mb-10">
-          <div className="flex-1 flex justify-start items-center gap-4">
-            {/* Навигация изменена на админскую */}
-            <Link 
-              href="/admin/haccp/temperature" 
-              className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] transition-colors hover:bg-slate-50 flex items-center gap-3 group shadow-sm"
-            >
-              <ArrowLeft size={16} className="text-slate-400 group-hover:-translate-x-1 transition-transform" />
-              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Список заведений</p>
-            </Link>
-          </div>
-          
-          <div className="px-10 py-3 bg-white border border-slate-100 rounded-full shadow-sm text-center">
-            <h1 className="text-xs font-black uppercase tracking-[0.2em] text-slate-800 leading-none">
-              Контроль: {establishmentInfo?.name}
-            </h1>
-          </div>
-
-          <div className="flex-1 flex items-center justify-end gap-2">
-            <button 
-              onClick={handleExportExcel}
-              className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm flex items-center justify-center text-slate-300 hover:text-emerald-600 transition-colors"
-            >
-              <Download size={18} />
-            </button>
-            {/* Ссылка на главную админку */}
-            <Link 
-              href="/admin" 
-              className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm flex items-center justify-center text-slate-300 hover:text-indigo-600 transition-colors"
-            >
-              <Home size={18} />
-            </Link>
-          </div>
-        </header>
-
-        {/* ПЕРЕКЛЮЧАТЕЛЬ МЕСЯЦА */}
-        <div className="flex justify-center mb-12">
-          <div className="flex items-center gap-1 bg-white p-1 rounded-2xl border border-slate-100 shadow-sm">
-            <button 
-              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1))}
-              className="p-3 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div className="px-8 min-w-[220px] text-center font-black uppercase text-[11px] tracking-[0.15em] text-slate-800 flex flex-col">
-              <span>{monthName} {viewDate.getFullYear()}</span>
-              <span className="text-[8px] text-indigo-500 font-bold tracking-normal mt-0.5 flex items-center justify-center gap-1 leading-none">
-                <Calendar size={8} /> Сегодня: {today.toLocaleDateString('ru-RU')}
-              </span>
-            </div>
-            <button 
-              onClick={() => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1))}
-              className="p-3 hover:bg-slate-50 rounded-xl text-slate-400 transition-colors"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
-        </div>
-
-        {/* ТАБЛИЦА ЖУРНАЛА */}
-        <div className="bg-white/70 backdrop-blur-sm border border-white rounded-[2.5rem] shadow-sm overflow-hidden">
-          <div className="w-full overflow-x-auto custom-scrollbar">
-            <table className="w-full border-separate border-spacing-0">
-              <thead>
-                <tr>
-                  <th className="sticky left-0 z-[50] bg-white text-left px-10 py-8 w-[300px] border-b border-slate-50">
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Оборудование</span>
-                  </th>
-                  <th className="px-4 py-8 border-b border-slate-50 text-left w-[80px]">
-                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">Смена</span>
-                  </th>
-                  {Array.from({ length: daysInMonth }).map((_, i) => (
-                    <th key={i} className="py-8 px-1 min-w-[46px] text-center border-b border-slate-50">
-                      <span className={`text-[11px] font-black ${new Date(viewDate.getFullYear(), viewDate.getMonth(), i+1).getTime() === today.getTime() ? 'text-indigo-600 underline decoration-2 underline-offset-4' : 'text-slate-300'}`}>
-                          {i + 1}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              
-              <tbody>
-                {equipment.map((e) => (
-                  <Fragment key={e.id}>
-                    <tr className="group">
-                      <td rowSpan={2} className="sticky left-0 z-[40] bg-white px-10 py-4 border-b border-slate-50">
-                        <div className="flex flex-col justify-center bg-slate-50/50 border border-slate-100 rounded-[1.2rem] px-5 py-3 shadow-sm transition-all group-hover:bg-white group-hover:border-indigo-100">
-                          <span className="text-[12px] font-black uppercase tracking-tight text-slate-800">{e.name}</span>
-                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter mt-1 leading-none">
-                            {e.type?.toLowerCase() === 'морозильное' ? "Морозильник (≤ -15°C)" : "Холодильник (+2...+6°C)"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 border-b border-slate-50">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Утро</span>
-                      </td>
-                      {Array.from({ length: daysInMonth }).map((_, i) => {
-                        const day = i + 1;
-                        const log = logs[e.id]?.[day]?.[0];
-                        const cellDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-                        const isFuture = cellDate > today;
-                        const status = getTempStatus(log?.value || "", e.type);
-                        return (
-                          <TempCell 
-                            key={`${e.id}-${day}-0`}
-                            value={log?.value}
-                            isFuture={isFuture}
-                            status={status}
-                            onClick={() => !isFuture && setActiveCell({ equipId: e.id, day, shift: 0 })}
-                          />
-                        );
-                      })}
-                    </tr>
-                    <tr className="group">
-                      <td className="px-4 py-4 border-b border-slate-50">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Вечер</span>
-                      </td>
-                      {Array.from({ length: daysInMonth }).map((_, i) => {
-                        const day = i + 1;
-                        const log = logs[e.id]?.[day]?.[1];
-                        const cellDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
-                        const isFuture = cellDate > today;
-                        const status = getTempStatus(log?.value || "", e.type);
-                        return (
-                          <TempCell 
-                            key={`${e.id}-${day}-1`}
-                            value={log?.value}
-                            isFuture={isFuture}
-                            status={status}
-                            onClick={() => !isFuture && setActiveCell({ equipId: e.id, day, shift: 1 })}
-                          />
-                        );
-                      })}
-                    </tr>
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* МОДАЛЬНОЕ ОКНО ВВОДА */}
-      {activeCell && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-xs overflow-hidden shadow-2xl animate-in zoom-in duration-200">
-            <div className="p-10">
-              <h3 className="text-sm font-black uppercase tracking-widest text-center mb-2 text-[#1e1b4b]">
-                Коррекция данных
-              </h3>
-              <p className="text-center text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-8">
-                {activeCell.day} {monthName}, {activeCell.shift === 0 ? 'УТРО' : 'ВЕЧЕР'}
-              </p>
-              
-              <div className="mb-8">
-                <input 
-                  autoFocus
-                  type="text" 
-                  inputMode="decimal"
-                  placeholder="°C"
-                  id="temp-input-field"
-                  className="w-full h-16 bg-slate-50 rounded-2xl border-none text-center text-3xl font-black focus:ring-2 ring-indigo-500 transition-all placeholder:text-slate-200"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      saveTemperature(activeCell.equipId, activeCell.day, activeCell.shift, (e.target as HTMLInputElement).value);
-                    }
-                    if (e.key === 'Escape') setActiveCell(null);
-                  }}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                  <button 
-                      onClick={() => {
-                          const val = (document.getElementById('temp-input-field') as HTMLInputElement).value;
-                          saveTemperature(activeCell.equipId, activeCell.day, activeCell.shift, val);
-                      }}
-                      className="w-full py-5 bg-[#1e1b4b] text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-200"
-                  >
-                      Сохранить правку
-                  </button>
-                  <button onClick={() => setActiveCell(null)} className="w-full py-4 text-slate-400 font-black uppercase tracking-widest text-[10px]">Отмена</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TempCell({ value, isFuture, status, onClick }: { value?: string, isFuture: boolean, status: "ok" | "warning" | "critical" | "none", onClick: () => void }) {
-  const getStatusStyles = () => {
-    if (isFuture) return 'bg-transparent border-dashed border-slate-100 text-transparent pointer-events-none shadow-none';
-    if (!value) return 'bg-slate-50/50 border-transparent text-slate-300 hover:bg-white hover:border-slate-200';
-    
-    switch (status) {
-        case "ok": return 'bg-emerald-500 border-emerald-500 text-white shadow-emerald-100';
-        case "warning": return 'bg-amber-400 border-amber-400 text-white shadow-amber-100';
-        case "critical": return 'bg-rose-500 border-rose-500 text-white shadow-rose-200 animate-pulse';
-        default: return 'bg-white border-slate-200 text-slate-800';
+    } catch (e) { 
+      console.error("Ошибка загрузки", e); 
+    } finally { 
+      setLoading(false); 
     }
   };
 
+  useEffect(() => { 
+    if (session) fetchSummary(); 
+  }, [currentMonth, currentYear, session]);
+
+  const processedEst = useMemo(() => {
+    let filtered = establishments.filter(est => 
+      est.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      est.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      est.partner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      est.address?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return filtered.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+      switch (sortConfig.key) {
+        case 'name': aValue = a.name.toLowerCase(); bValue = b.name.toLowerCase(); break;
+        case 'city': aValue = a.city.toLowerCase(); bValue = b.city.toLowerCase(); break;
+        case 'partner': aValue = (a.partner || "").toLowerCase(); bValue = (b.partner || "").toLowerCase(); break;
+        case 'skips': aValue = a.facilitySkipDays?.length || 0; bValue = b.facilitySkipDays?.length || 0; break;
+        default: return 0;
+      }
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [establishments, searchQuery, sortConfig]);
+
+  const requestSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const getDaysAddition = (count: number) => {
+    const lastDigit = count % 10;
+    if (count > 10 && count < 20) return 'пропусков';
+    if (lastDigit === 1) return 'пропуск';
+    if (lastDigit >= 2 && lastDigit <= 4) return 'пропуска';
+    return 'пропусков';
+  };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+      <Loader2 className="animate-spin text-[#10b981]" size={32} />
+      <div className="text-[10px] tracking-[0.3em] font-bold uppercase text-gray-400">Загрузка данных температуры...</div>
+    </div>
+  );
+
   return (
-    <td className="p-1">
-      <button 
-        disabled={isFuture}
-        onClick={onClick}
-        className={`w-full h-11 rounded-xl text-[10px] font-black transition-all flex items-center justify-center shadow-sm border ${getStatusStyles()}`}
-      >
-        {value ? `${value}°` : '-'}
-      </button>
-    </td>
+    <div className="flex flex-col gap-8 pb-20">
+      
+      {/* HEADER */}
+      <header className="sticky top-0 z-40 flex flex-col md:flex-row items-center justify-between gap-6 py-4 bg-[#F3F4F6]/80 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <Link href="/admin/haccp" className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm">
+            <ChevronLeft size={20} />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-light text-[#111827] tracking-tight">Температурные режимы</h1>
+            <p className="text-sm text-gray-500 font-medium">Мониторинг холодильного оборудования</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <input 
+              placeholder="Поиск заведения..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#10b981] transition-all shadow-soft"
+            />
+          </div>
+
+          <div className="flex items-center bg-white rounded-xl border border-gray-200 p-1 shadow-soft">
+            <Link href={`?month=${prevDate.getMonth()}&year=${prevDate.getFullYear()}`} className="p-2 hover:text-[#10b981] transition-colors">
+              <ChevronLeft size={18} />
+            </Link>
+            <div className="px-4 min-w-[150px] text-center text-[11px] font-bold uppercase tracking-widest text-[#111827]">
+              {displayDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}
+            </div>
+            <Link href={`?month=${nextDate.getMonth()}&year=${nextDate.getFullYear()}`} className="p-2 hover:text-[#10b981] transition-colors">
+              <ChevronRight size={18} />
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* TABLE HEADERS */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_200px_200px_150px] px-8 gap-4">
+        <button onClick={() => requestSort('name')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Заведение <ArrowUpDown size={12} />
+        </button>
+        <button onClick={() => requestSort('city')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Локация <ArrowUpDown size={12} />
+        </button>
+        <button onClick={() => requestSort('partner')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Партнер <ArrowUpDown size={12} />
+        </button>
+        <button onClick={() => requestSort('skips')} className="flex items-center justify-end gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
+          Пропуски <ArrowUpDown size={12} />
+        </button>
+      </div>
+
+      {/* LIST CONTENT */}
+      <div className="flex flex-col gap-3">
+        {processedEst.map((est: any) => {
+          const skipsCount = est.facilitySkipDays?.length || 0;
+          return (
+            <Link 
+              key={est.id} 
+              href={`/partner/office/establishments/${est.id}/temperature`}
+              className="group grid grid-cols-1 lg:grid-cols-[1fr_200px_200px_150px] items-center gap-4 p-5 px-8 bg-white rounded-[2rem] border border-transparent shadow-soft hover:shadow-xl hover:border-[#10b981]/30 transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-5 min-w-0">
+                <div className={`w-12 h-12 shrink-0 flex items-center justify-center rounded-2xl border transition-all
+                  ${est.isFilledToday 
+                    ? "bg-[#ecfdf5] border-[#d1fae5] text-[#10b981]" 
+                    : "bg-rose-50 border-rose-100 text-rose-500"}`}>
+                  {est.isFilledToday ? <Thermometer size={24} /> : <AlertCircle size={24} />}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <h4 className="text-[15px] font-bold text-[#111827] truncate group-hover:text-[#10b981] transition-colors">
+                    {est.name}
+                  </h4>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${est.isFilledToday ? 'text-[#10b981]' : 'text-rose-500'}`}>
+                    {est.isFilledToday ? 'Все замеры внесены' : 'Есть пропуски сегодня'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 text-gray-700">
+                  <MapPin size={12} className="text-gray-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-tight truncate">{est.city}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 truncate mt-0.5">{est.address || "—"}</span>
+              </div>
+
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 text-gray-700">
+                  <User size={12} className="text-gray-400" />
+                  <span className="text-[11px] font-bold uppercase tracking-tight truncate">{est.partner || "Система"}</span>
+                </div>
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Владелец</span>
+              </div>
+
+              <div className="flex flex-col items-end">
+                <span className={`text-[14px] font-bold leading-tight ${skipsCount > 0 ? "text-rose-500" : "text-[#10b981]"}`}>
+                  {skipsCount > 0 ? `${skipsCount} ${getDaysAddition(skipsCount)}` : 'Без замечаний'}
+                </span>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">За месяц</span>
+              </div>
+            </Link>
+          );
+        })}
+
+        {processedEst.length === 0 && (
+          <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-gray-200 shadow-soft">
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Результатов не найдено</p>
+          </div>
+        )}
+      </div>
+
+      {/* FOOTER */}
+      <footer className="mt-12 flex justify-between items-center px-4 opacity-60">
+        <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-400">Unit One Ecosystem v.2.4</p>
+        <div className="flex gap-4 items-center">
+          <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse shadow-[0_0_8px_#10b981]" />
+          <span className="text-[9px] font-bold uppercase tracking-widest text-[#10b981]">Admin Temp Monitor</span>
+        </div>
+      </footer>
+    </div>
   );
 }

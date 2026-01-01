@@ -143,7 +143,7 @@ export default function PartnerHACCPTemperatureListPage({ searchParams: searchPa
               return (
                 <Link 
                   key={est.id} 
-                  href={`/partner/establishments/${est.id}/temperature`}
+                  href={`/partner/office/establishments/${est.id}/temperature`}
                   className="group bg-white p-8 rounded-[2rem] border border-slate-100 transition-colors duration-300 flex flex-col justify-between h-[300px] hover:border-indigo-200"
                 >
                   <div className="relative">

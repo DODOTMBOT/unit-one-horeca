@@ -5,100 +5,31 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #1e1b4b;
-  --lavender-primary: #a78bfa;
-  --lavender-soft: #f3f0ff;
-  --lavender-dark: #7c3aed;
-  --border-slate: #f1f5f9;
+  --bg-app: #F3F4F6;
+  --bg-header: #1F2937; /* Черный графит */
+  
+  /* Текст */
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  
+  /* Акцент */
+  --accent-lime: #a3e635;
+  --accent-lime-hover: #84cc16;
 }
 
-html,
-body {
-  margin: 0 !important;
-  padding: 0 !important;
-  width: 100% !important;
-  min-width: 100% !important;
-  max-width: none !important;
-  overflow-x: hidden;
-  /* ИСПРАВЛЕНО: Установлен чистый белый фон */
-  background-color: #ffffff !important; 
-  color: var(--foreground);
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  -webkit-font-smoothing: antialiased;
-}
-
-main {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  background-color: #ffffff !important;
+html, body {
+  height: 100%;
+  margin: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans), sans-serif;
+  overflow: hidden;
 }
 
 @layer utilities {
-  /* Эффект стеклянного острова для шапки */
-  .floating-island {
-    background: rgba(255, 255, 255, 0.8); /* Чуть плотнее, чтобы не теряться на белом */
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border: 1px solid var(--border-slate); /* Более четкая граница на белом фоне */
-    box-shadow: 
-      0 4px 12px rgba(0, 0, 0, 0.02),
-      0 20px 40px rgba(30, 27, 75, 0.05);
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  .shadow-soft {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 0 4px rgba(0,0,0,0.02);
   }
-
-  /* Стеклянная панель для карточек в админке */
-  .glass-panel {
-    background: #ffffff; /* На белом фоне лучше использовать сплошной цвет для чистоты */
-    border: 1px solid var(--border-slate);
-    box-shadow: 0 8px 32px -4px rgba(30, 27, 75, 0.03);
-  }
-
-  /* Кастомный инпут (стиль Apple/SaaS) */
-  .glass-input {
-    background: #f8f9fc; /* Оставляем легкий оттенок только для инпутов, чтобы выделить их */
-    border: 2px solid transparent;
-    transition: all 0.3s ease;
-  }
-  .glass-input:focus {
-    background: #ffffff;
-    border-color: var(--lavender-primary);
-    box-shadow: 0 0 20px rgba(167, 139, 250, 0.1);
-  }
-
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-  .nav-pill-active {
-    background: #1e1b4b;
-    color: #ffffff;
-    box-shadow: 0 8px 16px rgba(30, 27, 75, 0.15);
-  }
-}
-
-/* Анимации для плавного появления блоков формы */
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-slide-up {
-  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Стилизация скроллбара для текстовых областей */
-textarea::-webkit-scrollbar {
-  width: 6px;
-}
-textarea::-webkit-scrollbar-track {
-  background: transparent;
-}
-textarea::-webkit-scrollbar-thumb {
-  background: rgba(30, 27, 75, 0.05);
-  border-radius: 10px;
-}
-textarea::-webkit-scrollbar-thumb:hover {
-  background: rgba(30, 27, 75, 0.1);
 }

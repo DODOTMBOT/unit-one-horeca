@@ -145,7 +145,7 @@ export default function AdminHACCPHealthListPage({ searchParams: searchParamsPro
               return (
                 <Link 
                   key={est.id} 
-                  href={`/partner/establishments/${est.id}/health`}
+                  href={`/partner/office/establishments/${est.id}/health`}
                   className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 transition-all duration-300 flex flex-col justify-between h-[320px] hover:border-[#7171a7]"
                 >
                   <div className="relative">

@@ -17,8 +17,8 @@ async function main() {
     // --- Уровень 2: ПАРТНЕР ---
     { name: '/partner/analytics', description: 'Аналитика и мониторинг' },
     
-    // === ХАССП (ИСПРАВЛЕНО: Добавлены дочки) ===
-    { name: '/partner/haccp', description: 'Журналы HACCP' },
+    // === ХАССП (Глобальные разделы) ===
+    { name: '/partner/haccp', description: 'Журналы HACCP (Общий)' },
     { name: '/partner/haccp/health', description: 'Журнал здоровья' },
     { name: '/partner/haccp/temperature', description: 'Температуры' },
     { name: '/partner/haccp/fryer', description: 'Фритюрные жиры' },
@@ -29,29 +29,28 @@ async function main() {
     { name: '/partner/office/staff', description: 'Сотрудники' },
     { name: '/partner/office/establishments', description: 'Рестораны' },
     { name: '/partner/office/equipment', description: 'Оборудование' },
+
+    // === ДИНАМИЧЕСКИЕ ПУТИ (Работа внутри ресторанов) ===
+    // Эти записи позволят Middleware понимать, что у пользователя есть право заходить в модули конкретных заведений
+    { name: '/partner/establishments', description: 'Доступ к модулям ресторанов' },
+    { name: '/partner/establishments/health', description: 'Журнал здоровья в конкретном ресторане' },
+    { name: '/partner/establishments/temperature', description: 'Температуры в конкретном ресторане' },
   ]
 
   console.log('⏳ Очистка старых прав...')
-  // Очищаем таблицу связей и прав (чтобы удалить дубли и мусор)
   await prisma.rolePermission.deleteMany({})
   await prisma.permission.deleteMany({})
 
   console.log('⏳ Запись новых путей в базу...')
   for (const p of permissions) {
-    await prisma.permission.create({
-      data: p
-    })
+    await prisma.permission.create({ data: p })
   }
 
-  // Находим роль OWNER (Владелец)
   const ownerRole = await prisma.role.findUnique({ where: { name: 'OWNER' } })
   
-  // Если роль есть — даем ей ВСЕ права автоматически
   if (ownerRole) {
     console.log('⏳ Выдача прав владельцу...')
     const allPerms = await prisma.permission.findMany()
-    
-    // Создаем связи разом (быстрее)
     await prisma.rolePermission.createMany({
       data: allPerms.map(perm => ({
         roleId: ownerRole.id,
@@ -60,7 +59,6 @@ async function main() {
     })
   }
 
-  // Привязываем твой аккаунт к роли OWNER (чтобы ты не потерял доступ)
   const myEmail = "ar@ar.ru"
   if (ownerRole) {
     await prisma.user.updateMany({
@@ -77,10 +75,5 @@ async function main() {
 }
 
 main()
-  .catch((e) => {
-    console.error(e)
-    process.exit(1)
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+  .catch((e) => { console.error(e); process.exit(1) })
+  .finally(async () => { await prisma.$disconnect() })

@@ -6,63 +6,58 @@ export default withAuth(
     const token = req.nextauth.token;
     const { pathname } = req.nextUrl;
 
-    // Страница "Доступ запрещен" и Auth всегда открыты
     if (pathname === "/denied" || pathname.startsWith("/auth")) {
       return NextResponse.next();
     }
 
-    // 1. Супер-админы (OWNER / ADMIN) ходят везде
-    const isSuperAdmin = token?.role === "ADMIN" || token?.role === "OWNER" || token?.email === process.env.SUPER_ADMIN_EMAIL;
+    const isSuperAdmin = 
+      token?.role === "ADMIN" || 
+      token?.role === "OWNER" || 
+      token?.email === process.env.SUPER_ADMIN_EMAIL;
+      
     if (isSuperAdmin) return NextResponse.next();
 
-    // Получаем права пользователя (приводим к нижнему регистру)
     const userPermissions = (token?.permissions as string[] || []).map(p => p.toLowerCase());
     const currentPath = pathname.toLowerCase();
 
-    // 2. ЗАЩИТА РАЗДЕЛОВ /admin и /partner
     if (currentPath.startsWith("/admin") || currentPath.startsWith("/partner")) {
       
+      // --- ЛОГИКА ДЛЯ ДИНАМИЧЕСКИХ ПУТЕЙ (UUID) ---
+      // Регулярка для поиска UUID: /partner/establishments/ID/module -> /partner/establishments/module
+      const uuidRegex = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+      const normalizedPath = currentPath.replace(uuidRegex, "");
+
       const hasAccess = userPermissions.some(permission => {
-        // Базовая проверка: путь должен начинаться с разрешения
-        if (!currentPath.startsWith(permission)) return false;
+        const p = permission.toLowerCase();
 
-        // ==============================================================
-        // ФИЗИЧЕСКАЯ ЗАЩИТА ОТ "НАСЛЕДОВАНИЯ" (FIX)
-        // ==============================================================
+        // Проверяем либо прямое совпадение с текущим путем, либо с нормализованным (без ID)
+        const isBaseMatch = currentPath.startsWith(p) || normalizedPath.startsWith(p);
         
-        // Разбиваем пути на сегменты (части между слэшами)
-        // Пример: /partner/office/staff -> 3 сегмента
+        if (!isBaseMatch) return false;
+
+        // --- ЗАЩИТА ОТ НАСЛЕДОВАНИЯ ---
         const pathSegments = currentPath.split('/').filter(Boolean);
-        const permSegments = permission.split('/').filter(Boolean);
+        const permSegments = p.split('/').filter(Boolean);
 
-        // Если это точное совпадение (например, идем в Офис и имеем права на Офис) -> ПУСКАЕМ
-        if (currentPath === permission) return true;
+        // Если это динамический путь (с ID), сегментов будет больше. 
+        // В этом случае мы ориентируемся на нормализованный путь для проверки глубины.
+        const checkSegments = uuidRegex.test(currentPath) 
+          ? normalizedPath.split('/').filter(Boolean) 
+          : pathSegments;
 
-        // Если путь длиннее разрешения (пытаемся зайти глубже), проверяем глубину.
-        // В вашей системе "Модули" находятся на 3-м уровне вложенности:
-        // 1. /partner
-        // 2. /partner/office
-        // 3. /partner/office/staff (МОДУЛЬ)
-        
-        // ПРАВИЛО: Разрешение уровня 1 или 2 НЕ МОЖЕТ открывать уровень 3.
-        // Если у нас право "/partner/office" (2 сегмента), а мы ломимся в "/partner/office/staff" (3 сегмента) -> БЛОК.
-        if (permSegments.length < 3 && pathSegments.length >= 3) {
+        // Если пытаемся зайти на уровень 3 (/partner/office/staff), а имеем только уровень 2 (/partner/office)
+        if (permSegments.length < 3 && checkSegments.length >= 3) {
            return false;
         }
-
-        // Если разрешение уже уровня 3 (/partner/office/staff), оно может открывать что угодно внутри себя
-        // Например: /partner/office/staff/add (4 сегмента) -> БУДЕТ ОТКРЫТО
         
         return true;
       });
 
       if (!hasAccess) {
-        // Если прав нет — редирект на страницу ошибки
         return NextResponse.rewrite(new URL("/denied", req.url));
       }
     }
 
-    // Стандартные заголовки
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', pathname);
     
@@ -76,7 +71,11 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        const { pathname } = req.nextUrl;
+        if (pathname.startsWith("/auth") || pathname === "/denied") return true;
+        return !!token;
+      },
     },
     pages: { signIn: "/auth/login" },
   }
