@@ -1,11 +1,14 @@
-"use client";
-
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { LogOut, Home, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 
-export default function PartnerHACCPPage() {
-  const { data: session } = useSession() as any;
+export default async function PartnerHACCPPage() {
+  const session = await getServerSession(authOptions);
+  
+  const isSuperAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "OWNER";
+  // Получаем список прав пользователя
+  const userPermissions = (session?.user?.permissions || []).map(p => p.toLowerCase());
   
   const haccpModules = [
     { 
@@ -23,16 +26,30 @@ export default function PartnerHACCPPage() {
     { 
       name: "Фритюрные жиры", 
       info: "Учет замены масла: контроль качества фритюра и соблюдение регламентов.", 
-      href: "#",
+      href: "/partner/haccp/fryer", // Ссылка должна быть в БД, даже если isActive: false
       isActive: false
     },
     { 
       name: "Бракераж", 
       info: "Качество готовых блюд: органолептическая оценка продукции перед реализацией.", 
-      href: "#",
+      href: "/partner/haccp/quality", // Ссылка должна быть в БД
       isActive: false
     }
   ];
+
+  // ФИЛЬТРАЦИЯ ВИДИМОСТИ
+  const visibleModules = haccpModules.filter(module => {
+    // 1. Блоки "В разработке" показываем всем как анонс (или можете скрыть, убрав эту строку)
+    if (!module.isActive) return true;
+
+    // 2. Супер-админ видит всё
+    if (isSuperAdmin) return true;
+
+    // 3. СТРОГАЯ ПРОВЕРКА ПРАВ
+    // Блок виден ТОЛЬКО если в базе данных (в seed.ts) есть запись об этой странице
+    // и у пользователя стоит галочка именно на этот пункт.
+    return userPermissions.includes(module.href.toLowerCase());
+  });
 
   return (
     <div 
@@ -44,7 +61,6 @@ export default function PartnerHACCPPage() {
         {/* TOP INTERFACE BAR */}
         <header className="flex items-center justify-between mb-20">
           
-          {/* ЛЕВАЯ ЧАСТЬ: КНОПКА НАЗАД */}
           <div className="flex-1 flex justify-start">
             <Link 
               href="/partner" 
@@ -55,14 +71,12 @@ export default function PartnerHACCPPage() {
             </Link>
           </div>
 
-          {/* ЦЕНТРАЛЬНЫЙ БЛОК */}
           <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem] hidden lg:block shadow-sm">
             <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
               Журналы HACCP
             </h1>
           </div>
 
-          {/* ПРАВАЯ ЧАСТЬ */}
           <div className="flex-1 flex items-center justify-end gap-2">
             <Link 
               href="/partner" 
@@ -73,7 +87,7 @@ export default function PartnerHACCPPage() {
             </Link>
 
             <Link 
-              href="/" 
+              href="/api/auth/signout" 
               className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors shadow-sm"
               title="Выйти"
             >
@@ -82,16 +96,16 @@ export default function PartnerHACCPPage() {
           </div>
         </header>
 
-        {/* MODULES GRID (Идентично PartnerHub) */}
+        {/* MODULES GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {haccpModules.map((module, idx) => {
+          {visibleModules.map((module, idx) => {
             const isActive = module.isActive;
             
             const CardContent = (
               <div className={`group relative h-full min-h-[160px] p-8 rounded-[2rem] border transition-colors ${
                 !isActive 
                 ? "bg-slate-100/30 border-transparent opacity-40 cursor-not-allowed" 
-                : "bg-white border-slate-100 hover:border-indigo-200"
+                : "bg-white border-slate-100 hover:border-indigo-200 shadow-sm hover:shadow-md"
               }`}>
                 <div>
                   <h3 className={`text-xl font-black leading-tight mb-3 tracking-tight ${!isActive ? 'text-slate-400' : 'text-[#1e1b4b]'}`}>
