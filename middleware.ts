@@ -1,82 +1,87 @@
-import { withAuth } from "next-auth/middleware"
-import { NextResponse } from "next/server"
+import { withAuth } from "next-auth/middleware";
+import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
     const { pathname } = req.nextUrl;
 
-    // 1. Исключаем саму страницу "Доступ запрещен" из проверок, чтобы не войти в бесконечный цикл
-    if (pathname === "/denied") {
+    // Страница "Доступ запрещен" и Auth всегда открыты
+    if (pathname === "/denied" || pathname.startsWith("/auth")) {
       return NextResponse.next();
     }
 
-    // 2. Определяем супер-права
-    const isSuperAdmin = 
-      token?.role === "ADMIN" || 
-      token?.role === "OWNER" || 
-      token?.email === process.env.SUPER_ADMIN_EMAIL;
-
-    // Если супер-админ — разрешаем всё сразу
+    // 1. Супер-админы (OWNER / ADMIN) ходят везде
+    const isSuperAdmin = token?.role === "ADMIN" || token?.role === "OWNER" || token?.email === process.env.SUPER_ADMIN_EMAIL;
     if (isSuperAdmin) return NextResponse.next();
 
-    // 3. СТРОГАЯ ПРОВЕРКА ПУТЕЙ ДЛЯ ОСТАЛЬНЫХ РОЛЕЙ
-    const userPermissions = (token?.permissions as string[]) || [];
+    // Получаем права пользователя (приводим к нижнему регистру)
+    const userPermissions = (token?.permissions as string[] || []).map(p => p.toLowerCase());
+    const currentPath = pathname.toLowerCase();
 
-    // Защищаем разделы /admin и /partner
-    if (pathname.startsWith("/admin") || pathname.startsWith("/partner")) {
+    // 2. ЗАЩИТА РАЗДЕЛОВ /admin и /partner
+    if (currentPath.startsWith("/admin") || currentPath.startsWith("/partner")) {
       
-      // Проверяем прямое наличие пути в массиве разрешений
-      const hasDirectAccess = userPermissions.includes(pathname);
+      const hasAccess = userPermissions.some(permission => {
+        // Базовая проверка: путь должен начинаться с разрешения
+        if (!currentPath.startsWith(permission)) return false;
 
-      if (!hasDirectAccess) {
-        // Вместо главной страницы отправляем на специальную страницу с ошибкой
-        const url = new URL("/denied", req.url);
-        // Добавляем в URL информацию, куда именно не пустили (для отладки или красоты)
-        url.searchParams.set("from", pathname); 
-        return NextResponse.redirect(url);
+        // ==============================================================
+        // ФИЗИЧЕСКАЯ ЗАЩИТА ОТ "НАСЛЕДОВАНИЯ" (FIX)
+        // ==============================================================
+        
+        // Разбиваем пути на сегменты (части между слэшами)
+        // Пример: /partner/office/staff -> 3 сегмента
+        const pathSegments = currentPath.split('/').filter(Boolean);
+        const permSegments = permission.split('/').filter(Boolean);
+
+        // Если это точное совпадение (например, идем в Офис и имеем права на Офис) -> ПУСКАЕМ
+        if (currentPath === permission) return true;
+
+        // Если путь длиннее разрешения (пытаемся зайти глубже), проверяем глубину.
+        // В вашей системе "Модули" находятся на 3-м уровне вложенности:
+        // 1. /partner
+        // 2. /partner/office
+        // 3. /partner/office/staff (МОДУЛЬ)
+        
+        // ПРАВИЛО: Разрешение уровня 1 или 2 НЕ МОЖЕТ открывать уровень 3.
+        // Если у нас право "/partner/office" (2 сегмента), а мы ломимся в "/partner/office/staff" (3 сегмента) -> БЛОК.
+        if (permSegments.length < 3 && pathSegments.length >= 3) {
+           return false;
+        }
+
+        // Если разрешение уже уровня 3 (/partner/office/staff), оно может открывать что угодно внутри себя
+        // Например: /partner/office/staff/add (4 сегмента) -> БУДЕТ ОТКРЫТО
+        
+        return true;
+      });
+
+      if (!hasAccess) {
+        // Если прав нет — редирект на страницу ошибки
+        return NextResponse.rewrite(new URL("/denied", req.url));
       }
     }
 
-    // 4. Формируем стандартный ответ с пробросом pathname в заголовки
+    // Стандартные заголовки
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', pathname);
+    
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
 
-    const response = NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
-
-    // 5. Отключаем кэширование для приватных зон
-    if (pathname.startsWith("/profile") || pathname.startsWith("/admin") || pathname.startsWith("/partner")) {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/partner")) {
       response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-      response.headers.set('Pragma', 'no-cache');
-      response.headers.set('Expires', '0');
     }
 
     return response;
   },
   {
     callbacks: {
-      // Пользователь должен быть авторизован для доступа к любому маршруту, кроме логина
       authorized: ({ token }) => !!token,
     },
-    pages: { 
-      signIn: "/auth/login",
-    }, 
+    pages: { signIn: "/auth/login" },
   }
-)
+);
 
 export const config = { 
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    "/((?!api|_next/static|_next/image|favicon.ico).*)",
-  ],
-}
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"] 
+};
