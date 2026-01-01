@@ -1,129 +1,90 @@
-"use client";
-
-import { useSession } from "next-auth/react";
-import { LogOut, Lock, Loader2 } from "lucide-react";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { LogOut, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
-export default function AdminHub() {
-  const { data: session, status } = useSession();
+export default async function PartnerOfficeHub() {
+  const session = await getServerSession(authOptions);
+  
+  const isSuperAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "OWNER";
+  const userPermissions = (session?.user?.permissions || []).map(p => p.toLowerCase());
 
-  const sections = [
-
-        {
-      title: "Настройка сайта",
-      description: "Настройки сайта, контент и структура платформы.",
-      links: [
-        { name: "Настройка сайта", href: "/admin/settings" },
-      ]
+  const modules = [
+    { 
+      name: "Сотрудники", 
+      info: "Управление штатом и ролями", 
+      href: "/partner/office/staff" 
     },
-
-    {
-      title: "Маркетплейс решений",
-      description: "Управление продажами и каталогом: товары, заказы и категории.",
-      links: [
-        { name: "Маркетплейс решений", href: "/admin/products" },
-      ]
-
+    { 
+      name: "Рестораны", 
+      info: "Редактирование, создание и список объектов", 
+      href: "/partner/office/establishments" 
     },
-        {
-      title: "Журналы ХАССП",
-      description: "Управление журналами ХАССП для клиентов.",
-      links: [
-        { name: "Журналы ХАССП", href: "/admin/haccp" },
-      ]
+    { 
+      name: "Оборудование", 
+      info: "Редактирование, создание и список объектов", 
+      href: "/partner/office/equipment" 
     },
-
+    { name: "База знаний", info: "Стандарты и инструкции", href: "#", isSoon: true },
   ];
 
-  // 1. СТРОГАЯ ФИЛЬТРАЦИЯ
-  const isSuperAdmin = session?.user?.role === "ADMIN" || session?.user?.role === "OWNER";
-  const userPermissions = session?.user?.permissions || [];
+  const visibleModules = modules.filter(module => {
+    if (module.isSoon) return true;
+    if (isSuperAdmin) return true;
 
-  const accessibleLinks = sections.flatMap(section => 
-    section.links
-      .filter(link => {
-        // Если это главный админ — показываем всё
-        if (isSuperAdmin) return true;
-        
-        // Для остальных: показываем плитку ТОЛЬКО если этот путь ЕСТЬ в базе прав
-        return userPermissions.includes(link.href);
-      })
-      .map(link => ({ ...link, sectionDescription: section.description }))
-  );
+    const targetPath = module.href.toLowerCase();
+    
+    // СТРОГАЯ ЛОГИКА:
+    // 1. Точное совпадение: у пользователя есть право именно на этот модуль
+    const hasExactPermission = userPermissions.includes(targetPath);
 
-  if (status === "loading") {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
-        <Loader2 className="animate-spin text-indigo-600" size={32} />
-      </div>
-    );
-  }
+    // 2. Вложенное совпадение: у пользователя есть право на что-то ВНУТРИ этого модуля
+    // (например, нет прав на "/equipment", но есть на "/equipment/add")
+    const hasNestedPermission = userPermissions.some(p => p.startsWith(targetPath + "/"));
 
-  // Если прав нет ни на одну конкретную плитку
-  if (accessibleLinks.length === 0) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6">
-          <Lock size={40} />
-        </div>
-        <h1 className="text-2xl font-black uppercase tracking-tight text-slate-800 mb-2">Доступы не настроены</h1>
-        <p className="text-slate-400 text-sm max-w-sm mb-8 font-medium">
-          Для роли <span className="text-indigo-600 font-bold">{session?.user?.roleName}</span> не активированы конкретные модули. Обратитесь к администратору.
-        </p>
-        <Link href="/" className="px-8 py-4 bg-[#1e1b4b] text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all">
-          Вернуться на главную
-        </Link>
-      </div>
-    );
-  }
+    // Мы НЕ проверяем родителя (p.startsWith). 
+    // Наличие прав на "/partner/office" НЕ должно открывать "Рестораны".
+    
+    return hasExactPermission || hasNestedPermission;
+  });
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
+    <div data-page="partner-terminal" className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
       <div className="max-w-[1400px] mx-auto">
-        
-        {/* HEADER */}
-        <div className="flex items-center justify-between mb-20">
-          <div className="flex-1 hidden md:flex" />
+        <header className="flex items-center justify-between mb-20">
+          <div className="flex-1 flex justify-start">
+            <Link href="/partner" className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] flex items-center gap-3 hover:bg-slate-50 transition-colors">
+              <ArrowLeft size={16} className="text-slate-400" />
+              <p className="text-xs font-black uppercase tracking-widest text-slate-800">Назад</p>
+            </Link>
+          </div>
           <div className="px-16 py-4 bg-white border border-slate-100 rounded-[1.5rem]">
-            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 leading-none text-center">
-              Панель управления
-            </h1>
+            <h1 className="text-sm font-black uppercase tracking-[0.2em] text-slate-800 text-center">Менеджер офиса</h1>
           </div>
           <div className="flex-1 flex items-center justify-end gap-2">
-            <Link href="/" className="px-6 py-4 bg-white border border-slate-100 rounded-[1.5rem] hover:bg-slate-50 transition-colors">
-              <p className="text-xs font-black uppercase tracking-widest text-slate-800 leading-none">Сайт</p>
-            </Link>
             <Link href="/api/auth/signout" className="w-12 h-12 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center text-slate-300 hover:text-rose-500 transition-colors">
               <LogOut size={18} />
             </Link>
           </div>
-        </div>
+        </header>
 
-        {/* GRID: ТЕПЕРЬ С ЛАВАНДОВОЙ ОБВОДКОЙ ПРИ НАВЕДЕНИИ */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {accessibleLinks.map((link, idx) => (
-            <Link key={idx} href={link.href} className="no-underline">
-              <div className="group relative h-full min-h-[180px] p-8 rounded-[2.5rem] border border-slate-100 bg-white hover:border-[#7171a7] transition-colors duration-300">
-                <h3 className="text-lg font-black leading-tight mb-3 tracking-tight text-[#1e1b4b]">
-                  {link.name}
-                </h3>
-                <p className="text-[12px] font-bold text-slate-400 uppercase tracking-wider leading-relaxed opacity-60">
-                  {link.sectionDescription}
-                </p>
+          {visibleModules.map((module, idx) => (
+            module.isSoon ? (
+              <div key={idx} className="group relative h-full min-h-[160px] p-8 rounded-[2rem] border bg-slate-100/30 opacity-40 cursor-not-allowed">
+                <h3 className="text-xl font-black mb-3 text-slate-400">{module.name}</h3>
+                <p className="text-[13px] font-medium text-slate-400">{module.info}</p>
+                <div className="mt-4 text-[8px] font-black uppercase text-slate-400 bg-slate-50 w-fit px-3 py-1 rounded-full">В разработке</div>
               </div>
-            </Link>
+            ) : (
+              <Link key={idx} href={module.href} className="no-underline">
+                <div className="group relative h-full min-h-[160px] p-8 rounded-[2rem] border bg-white border-slate-100 hover:border-indigo-500 transition-all duration-300 shadow-sm">
+                  <h3 className="text-xl font-black mb-3 text-[#1e1b4b]">{module.name}</h3>
+                  <p className="text-[13px] font-medium text-slate-400 group-hover:text-slate-500">{module.info}</p>
+                </div>
+              </Link>
+            )
           ))}
-        </div>
-
-        {/* FOOTER */}
-        <div className="mt-32 pt-10 border-t border-slate-100 flex justify-between items-center">
-          <p className="text-[9px] font-black uppercase tracking-[0.4em] text-slate-300">Unit One Ecosystem v.2.4</p>
-          <div className="flex gap-4 items-center">
-             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-             <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">
-               Доступы роли: {session?.user?.roleName}
-             </span>
-          </div>
         </div>
       </div>
     </div>

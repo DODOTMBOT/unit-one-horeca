@@ -33,7 +33,7 @@ export default function AdminHACCPHealthListPage({ searchParams: searchParamsPro
       setLoading(true);
       try {
         // Используем эндпоинт админки для получения всех заведений системы
-        const res = await fetch(`/api/admin/haccp/summary?month=${currentMonth}&year=${currentYear}`, {
+        const res = await fetch(`/api/partner/haccp/summary?month=${currentMonth}&year=${currentYear}`, {
           cache: 'no-store'
         });
         if (res.ok) {
@@ -145,7 +145,7 @@ export default function AdminHACCPHealthListPage({ searchParams: searchParamsPro
               return (
                 <Link 
                   key={est.id} 
-                  href={`/admin/establishments/${est.id}/health`}
+                  href={`/partner/establishments/${est.id}/health`}
                   className="group bg-white p-8 rounded-[2.5rem] border border-slate-100 transition-all duration-300 flex flex-col justify-between h-[320px] hover:border-[#7171a7]"
                 >
                   <div className="relative">

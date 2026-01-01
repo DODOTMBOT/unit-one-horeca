@@ -94,21 +94,10 @@ export default function LoginPage() {
             )}
           </button>
 
-          <div className="relative py-4">
-             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-             <div className="relative flex justify-center text-[8px] uppercase font-black"><span className="bg-white px-4 text-slate-300">или</span></div>
-          </div>
-
-          <button 
-            type="button"
-            onClick={() => signIn("yandex")}
-            className="w-full bg-white border border-slate-200 text-[#1e1b4b] py-4 rounded-2xl font-black uppercase text-[10px] tracking-[0.1em] hover:bg-slate-50 transition-all flex items-center justify-center gap-3"
-          >
-            Войти через Яндекс
-          </button>
-
           <p className="text-[9px] font-bold text-slate-400 text-center pt-4 uppercase">
-            Нет аккаунта? <Link href="/auth/register" className="text-indigo-500">Зарегистрироваться</Link>
+            Нет аккаунта?{" "}
+            {/* ИЗМЕНЕНО: Используем обычный href для принудительного перехода без сохранения callbackUrl */}
+            <a href="/auth/register" className="text-indigo-500">Зарегистрироваться</a>
           </p>
         </form>
       </div>
