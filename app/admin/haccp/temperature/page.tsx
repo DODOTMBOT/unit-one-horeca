@@ -1,34 +1,30 @@
 "use client";
 
-import { useState, useEffect, use, useMemo } from "react";
+import { useState, useEffect, use, useMemo, Fragment } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   ChevronLeft, 
   ChevronRight, 
   Search, 
   AlertCircle,
-  CheckCircle2,
   Loader2,
-  ArrowUpDown,
   MapPin,
-  User,
+  Users,
+  ChevronDown,
   Thermometer
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
-type SortConfig = {
-  key: string;
-  direction: 'asc' | 'desc';
-};
-
 export default function AdminHACCPTemperatureListPage({ searchParams: searchParamsPromise }: any) {
   const { data: session } = useSession() as any;
   const params = use(searchParamsPromise) as any;
+  const router = useRouter();
   
   const [establishments, setEstablishments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const currentMonth = params.month ? parseInt(params.month) : new Date().getMonth();
   const currentYear = params.year ? parseInt(params.year) : new Date().getFullYear();
@@ -37,196 +33,179 @@ export default function AdminHACCPTemperatureListPage({ searchParams: searchPara
   const prevDate = new Date(currentYear, currentMonth - 1, 1);
   const nextDate = new Date(currentYear, currentMonth + 1, 1);
 
-  const fetchSummary = async () => {
-    setLoading(true);
-    try {
-      // Фетчим данные через админский эндпоинт (type=temperature)
-      const res = await fetch(`/api/admin/haccp/summary?month=${currentMonth}&year=${currentYear}&type=temperature`, {
-        cache: 'no-store'
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setEstablishments(data);
-      }
-    } catch (e) { 
-      console.error("Ошибка загрузки", e); 
-    } finally { 
-      setLoading(false); 
-    }
-  };
-
   useEffect(() => { 
+    const fetchSummary = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/haccp/summary?month=${currentMonth}&year=${currentYear}&type=temperature`, {
+          cache: 'no-store'
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEstablishments(data);
+          // Все группы развернуты по умолчанию
+          const initialExpanded: Record<string, boolean> = {};
+          data.forEach((est: any) => { initialExpanded[est.partner || "Система"] = true; });
+          setExpandedGroups(initialExpanded);
+        }
+      } catch (e) { console.error(e); } finally { setLoading(false); }
+    };
     if (session) fetchSummary(); 
   }, [currentMonth, currentYear, session]);
 
-  const processedEst = useMemo(() => {
-    let filtered = establishments.filter(est => 
+  const groupedEst = useMemo(() => {
+    const filtered = establishments.filter(est => 
       est.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      est.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      est.partner?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      est.address?.toLowerCase().includes(searchQuery.toLowerCase())
+      est.partner?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-
-    return filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-      switch (sortConfig.key) {
-        case 'name': aValue = a.name.toLowerCase(); bValue = b.name.toLowerCase(); break;
-        case 'city': aValue = a.city.toLowerCase(); bValue = b.city.toLowerCase(); break;
-        case 'partner': aValue = (a.partner || "").toLowerCase(); bValue = (b.partner || "").toLowerCase(); break;
-        case 'skips': aValue = a.facilitySkipDays?.length || 0; bValue = b.facilitySkipDays?.length || 0; break;
-        default: return 0;
-      }
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-      return 0;
+    const groups: Record<string, any[]> = {};
+    filtered.forEach(est => {
+      const p = est.partner || "Система";
+      if (!groups[p]) groups[p] = [];
+      groups[p].push(est);
     });
-  }, [establishments, searchQuery, sortConfig]);
-
-  const requestSort = (key: string) => {
-    setSortConfig(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    return Object.keys(groups).sort().map(partner => ({
+      partner,
+      items: groups[partner].sort((a, b) => a.name.localeCompare(b.name))
     }));
-  };
+  }, [establishments, searchQuery]);
 
-  const getDaysAddition = (count: number) => {
-    const lastDigit = count % 10;
-    if (count > 10 && count < 20) return 'пропусков';
-    if (lastDigit === 1) return 'пропуск';
-    if (lastDigit >= 2 && lastDigit <= 4) return 'пропуска';
-    return 'пропусков';
+  const toggleGroup = (partner: string) => {
+    setExpandedGroups(prev => ({ ...prev, [partner]: !prev[partner] }));
   };
 
   if (loading) return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-      <Loader2 className="animate-spin text-[#10b981]" size={32} />
-      <div className="text-[10px] tracking-[0.3em] font-bold uppercase text-gray-400">Загрузка данных температуры...</div>
+      <Loader2 className="animate-spin text-[#10b981]" size={40} />
+      <div className="text-xs tracking-[0.2em] font-bold uppercase text-gray-400">Загрузка данных температуры...</div>
     </div>
   );
 
   return (
-    <div className="flex flex-col gap-8 pb-20">
+    <div className="flex flex-col gap-6 pb-10 max-w-[1400px] mx-auto px-4">
       
       {/* HEADER */}
-      <header className="sticky top-0 z-40 flex flex-col md:flex-row items-center justify-between gap-6 py-4 bg-[#F3F4F6]/80 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/haccp" className="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm">
-            <ChevronLeft size={20} />
+      <header className="flex flex-col md:flex-row items-center justify-between gap-6 py-4">
+        <div className="flex items-center gap-5">
+          <Link href="/admin/haccp" className="w-12 h-12 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-gray-500 hover:text-[#10b981] hover:border-[#10b981] transition-all shadow-sm">
+            <ChevronLeft size={24} />
           </Link>
           <div>
-            <h1 className="text-2xl font-light text-[#111827] tracking-tight">Температурные режимы</h1>
-            <p className="text-sm text-gray-500 font-medium">Мониторинг холодильного оборудования</p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight leading-none">Температурные режимы</h1>
+            <p className="text-sm text-gray-400 font-medium mt-1 uppercase tracking-wider">Мониторинг оборудования</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 w-full md:w-auto">
-          <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               placeholder="Поиск заведения..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#10b981] transition-all shadow-soft"
+              className="pl-12 pr-6 py-3 bg-white border border-gray-100 rounded-2xl text-sm outline-none focus:border-[#10b981] w-64 lg:w-80 transition-all shadow-sm focus:ring-4 ring-[#10b981]/5"
             />
           </div>
 
-          <div className="flex items-center bg-white rounded-xl border border-gray-200 p-1 shadow-soft">
-            <Link href={`?month=${prevDate.getMonth()}&year=${prevDate.getFullYear()}`} className="p-2 hover:text-[#10b981] transition-colors">
-              <ChevronLeft size={18} />
-            </Link>
-            <div className="px-4 min-w-[150px] text-center text-[11px] font-bold uppercase tracking-widest text-[#111827]">
+          <div className="flex items-center bg-white rounded-2xl border border-gray-100 p-1 shadow-sm">
+            <Link href={`?month=${prevDate.getMonth()}&year=${prevDate.getFullYear()}`} className="p-2.5 hover:bg-gray-50 rounded-xl transition-colors text-gray-400 hover:text-[#10b981]"><ChevronLeft size={20} /></Link>
+            <div className="px-4 min-w-[140px] text-center text-xs font-black uppercase tracking-widest text-gray-800">
               {displayDate.toLocaleString('ru-RU', { month: 'long', year: 'numeric' })}
             </div>
-            <Link href={`?month=${nextDate.getMonth()}&year=${nextDate.getFullYear()}`} className="p-2 hover:text-[#10b981] transition-colors">
-              <ChevronRight size={18} />
-            </Link>
+            <Link href={`?month=${nextDate.getMonth()}&year=${nextDate.getFullYear()}`} className="p-2.5 hover:bg-gray-50 rounded-xl transition-colors text-gray-400 hover:text-[#10b981]"><ChevronRight size={20} /></Link>
           </div>
         </div>
       </header>
 
-      {/* TABLE HEADERS */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_200px_200px_150px] px-8 gap-4">
-        <button onClick={() => requestSort('name')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
-          Заведение <ArrowUpDown size={12} />
-        </button>
-        <button onClick={() => requestSort('city')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
-          Локация <ArrowUpDown size={12} />
-        </button>
-        <button onClick={() => requestSort('partner')} className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
-          Партнер <ArrowUpDown size={12} />
-        </button>
-        <button onClick={() => requestSort('skips')} className="flex items-center justify-end gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#10b981] transition-colors">
-          Пропуски <ArrowUpDown size={12} />
-        </button>
-      </div>
+      {/* TABLE */}
+      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-soft overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-gray-50/80 border-b border-gray-100">
+              <th className="px-8 py-5 text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">Объект / Локация</th>
+              <th className="px-6 py-5 text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] text-center">Статус оборудования</th>
+              <th className="px-6 py-5 text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em] text-center">Пропуски (мес)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groupedEst.map((group, gIdx) => {
+              const isExpanded = expandedGroups[group.partner] !== false;
+              return (
+                <Fragment key={group.partner}>
+                  {/* Группировка по партнеру */}
+                  <tr 
+                    onClick={() => toggleGroup(group.partner)}
+                    className={`cursor-pointer transition-all bg-slate-50 hover:bg-slate-100 border-b border-gray-100 ${gIdx !== 0 ? 'border-t-2 border-gray-100' : ''}`}
+                  >
+                    <td colSpan={3} className="px-8 py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <ChevronDown size={20} className={`text-slate-400 transition-transform duration-300 ${isExpanded ? '' : '-rotate-90'}`} />
+                          <Users size={18} className="text-slate-400" />
+                          <span className="text-sm font-bold text-slate-700 uppercase tracking-wide">{group.partner}</span>
+                          <span className="text-[11px] bg-white px-2 py-0.5 rounded-lg border border-slate-200 text-slate-400 font-bold ml-1">
+                            {group.items.length}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
 
-      {/* LIST CONTENT */}
-      <div className="flex flex-col gap-3">
-        {processedEst.map((est: any) => {
-          const skipsCount = est.facilitySkipDays?.length || 0;
-          return (
-            <Link 
-              key={est.id} 
-              href={`/partner/office/establishments/${est.id}/temperature`}
-              className="group grid grid-cols-1 lg:grid-cols-[1fr_200px_200px_150px] items-center gap-4 p-5 px-8 bg-white rounded-[2rem] border border-transparent shadow-soft hover:shadow-xl hover:border-[#10b981]/30 transition-all active:scale-[0.99]"
-            >
-              <div className="flex items-center gap-5 min-w-0">
-                <div className={`w-12 h-12 shrink-0 flex items-center justify-center rounded-2xl border transition-all
-                  ${est.isFilledToday 
-                    ? "bg-[#ecfdf5] border-[#d1fae5] text-[#10b981]" 
-                    : "bg-rose-50 border-rose-100 text-rose-500"}`}>
-                  {est.isFilledToday ? <Thermometer size={24} /> : <AlertCircle size={24} />}
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <h4 className="text-[15px] font-bold text-[#111827] truncate group-hover:text-[#10b981] transition-colors">
-                    {est.name}
-                  </h4>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${est.isFilledToday ? 'text-[#10b981]' : 'text-rose-500'}`}>
-                    {est.isFilledToday ? 'Все замеры внесены' : 'Есть пропуски сегодня'}
-                  </span>
-                </div>
-              </div>
+                  {/* Строки заведений */}
+                  {isExpanded && group.items.map((est) => (
+                    <tr 
+                      key={est.id} 
+                      onClick={() => router.push(`/partner/office/establishments/${est.id}/temperature`)}
+                      className="group cursor-pointer hover:bg-emerald-50/20 transition-colors border-b border-gray-50 last:border-0"
+                    >
+                      <td className="px-10 py-5">
+                        <div className="flex flex-col">
+                          <span className="text-[15px] font-bold text-gray-800 group-hover:text-[#10b981] transition-colors">{est.name}</span>
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-1 font-medium">
+                            <MapPin size={14} className="text-gray-300" />
+                            <span>{est.city}, {est.address || "—"}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex justify-center">
+                          {est.isFilledToday ? (
+                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-50 text-emerald-600 text-xs font-bold uppercase tracking-wide border border-emerald-100">
+                              <Thermometer size={14} /> НОРМА
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-rose-50 text-rose-500 text-xs font-bold uppercase tracking-wide border border-rose-100">
+                              <AlertCircle size={14} /> ПРОПУСКИ
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <span className={`text-sm font-black ${est.facilitySkipDays?.length > 0 ? "text-rose-500" : "text-gray-300"}`}>
+                          {est.facilitySkipDays?.length || 0}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
 
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 text-gray-700">
-                  <MapPin size={12} className="text-gray-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-tight truncate">{est.city}</span>
-                </div>
-                <span className="text-[10px] text-gray-400 truncate mt-0.5">{est.address || "—"}</span>
-              </div>
-
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 text-gray-700">
-                  <User size={12} className="text-gray-400" />
-                  <span className="text-[11px] font-bold uppercase tracking-tight truncate">{est.partner || "Система"}</span>
-                </div>
-                <span className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5">Владелец</span>
-              </div>
-
-              <div className="flex flex-col items-end">
-                <span className={`text-[14px] font-bold leading-tight ${skipsCount > 0 ? "text-rose-500" : "text-[#10b981]"}`}>
-                  {skipsCount > 0 ? `${skipsCount} ${getDaysAddition(skipsCount)}` : 'Без замечаний'}
-                </span>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">За месяц</span>
-              </div>
-            </Link>
-          );
-        })}
-
-        {processedEst.length === 0 && (
-          <div className="py-20 text-center bg-white rounded-[2.5rem] border border-dashed border-gray-200 shadow-soft">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Результатов не найдено</p>
+        {groupedEst.length === 0 && (
+          <div className="py-32 text-center text-gray-300 text-sm uppercase font-bold tracking-[0.3em]">
+            Заведений не найдено
           </div>
         )}
       </div>
 
       {/* FOOTER */}
-      <footer className="mt-12 flex justify-between items-center px-4 opacity-60">
+      <footer className="flex justify-between items-center px-4 mt-4 opacity-50">
         <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-gray-400">Unit One Ecosystem v.2.4</p>
         <div className="flex gap-4 items-center">
-          <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse shadow-[0_0_8px_#10b981]" />
-          <span className="text-[9px] font-bold uppercase tracking-widest text-[#10b981]">Admin Temp Monitor</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-[#10b981]">Temp Monitor</span>
         </div>
       </footer>
     </div>
