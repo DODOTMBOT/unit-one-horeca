@@ -18,7 +18,7 @@ export default function RegisterPage() {
     password: "",
     confirmPassword: "",
     roleType: "partner", // partner или employee
-    inviteCode: "", // Изменено с partnerByCode
+    inviteCode: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,10 +33,16 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      // Перед отправкой, если это партнер, очищаем инвайт-код на всякий случай
+      const payload = {
+        ...formData,
+        inviteCode: formData.roleType === 'partner' ? "" : formData.inviteCode
+      };
+
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -67,14 +73,14 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={() => setFormData({...formData, roleType: 'partner'})}
-              className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.roleType === 'partner' ? 'bg-[#1e1b4b] text-white shadow-lg' : 'text-slate-400'}`}
+              className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.roleType === 'partner' ? "bg-[#1e1b4b] text-white shadow-lg" : "text-slate-400"}`}
             >
               Владелец
             </button>
             <button
               type="button"
               onClick={() => setFormData({...formData, roleType: 'employee'})}
-              className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.roleType === 'employee' ? 'bg-[#1e1b4b] text-white shadow-lg' : 'text-slate-400'}`}
+              className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all ${formData.roleType === 'employee' ? "bg-[#1e1b4b] text-white shadow-lg" : "text-slate-400"}`}
             >
               Сотрудник
             </button>
@@ -122,7 +128,6 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Поле кода заведения для сотрудника */}
           {formData.roleType === 'employee' && (
             <div className="space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="text-[9px] font-black uppercase text-indigo-500 ml-4">Код заведения (7 знаков)</label>

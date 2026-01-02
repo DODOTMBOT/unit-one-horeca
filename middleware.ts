@@ -2,14 +2,20 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
     const token = req.nextauth.token;
-    const { pathname } = req.nextUrl;
+    const { pathname, origin } = req.nextUrl;
 
-    if (pathname === "/denied" || pathname.startsWith("/auth")) {
+    // 1. ПУБЛИЧНЫЕ СТРАНИЦЫ
+    if (
+      pathname.startsWith("/auth") || 
+      pathname === "/denied" || 
+      pathname === "/"
+    ) {
       return NextResponse.next();
     }
 
+    // 2. СУПЕР-АДМИН (OWNER/ADMIN)
     const isSuperAdmin = 
       token?.role === "ADMIN" || 
       token?.role === "OWNER" || 
@@ -17,52 +23,53 @@ export default withAuth(
       
     if (isSuperAdmin) return NextResponse.next();
 
-    const userPermissions = (token?.permissions as string[] || []).map(p => p.toLowerCase());
+    // 3. ПРОВЕРКА ДОСТУПА ПО БАЗЕ
     const currentPath = pathname.toLowerCase();
 
     if (currentPath.startsWith("/admin") || currentPath.startsWith("/partner")) {
+      const uuidRegex = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
       
-      // --- ЛОГИКА ДЛЯ ДИНАМИЧЕСКИХ ПУТЕЙ (UUID) ---
-      // Регулярка для поиска UUID: /partner/establishments/ID/module -> /partner/establishments/module
-      const uuidRegex = /\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
-      const normalizedPath = currentPath.replace(uuidRegex, "");
+      const normalizedPath = currentPath
+        .replace(uuidRegex, '[id]')
+        .replace(/\/$/, "") || "/";
 
-      const hasAccess = userPermissions.some(permission => {
-        const p = permission.toLowerCase();
+      // ЛОГИКА НАСЛЕДОВАНИЯ:
+      // Если путь содержит [id], мы также проверим доступ к родительской папке.
+      // Например: для /partner/office/establishments/[id] 
+      // родитель будет /partner/office/establishments
+      const parentPath = normalizedPath.includes('/[id]') 
+        ? normalizedPath.split('/[id]')[0] 
+        : null;
 
-        // Проверяем либо прямое совпадение с текущим путем, либо с нормализованным (без ID)
-        const isBaseMatch = currentPath.startsWith(p) || normalizedPath.startsWith(p);
-        
-        if (!isBaseMatch) return false;
+      try {
+        const checkRes = await fetch(`${origin}/api/auth/check-permission`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            roleId: token?.roleId, 
+            path: normalizedPath,
+            parentPath: parentPath // Передаем родителя для облегчения проверки в API
+          }),
+        });
 
-        // --- ЗАЩИТА ОТ НАСЛЕДОВАНИЯ ---
-        const pathSegments = currentPath.split('/').filter(Boolean);
-        const permSegments = p.split('/').filter(Boolean);
+        const { hasAccess } = await checkRes.json();
 
-        // Если это динамический путь (с ID), сегментов будет больше. 
-        // В этом случае мы ориентируемся на нормализованный путь для проверки глубины.
-        const checkSegments = uuidRegex.test(currentPath) 
-          ? normalizedPath.split('/').filter(Boolean) 
-          : pathSegments;
-
-        // Если пытаемся зайти на уровень 3 (/partner/office/staff), а имеем только уровень 2 (/partner/office)
-        if (permSegments.length < 3 && checkSegments.length >= 3) {
-           return false;
+        if (!hasAccess) {
+          console.log(`❌ ACCESS DENIED: ${normalizedPath} (Parent: ${parentPath}) for roleId: ${token?.roleId}`);
+          return NextResponse.rewrite(new URL("/denied", req.url));
         }
-        
-        return true;
-      });
-
-      if (!hasAccess) {
-        return NextResponse.rewrite(new URL("/denied", req.url));
+      } catch (error) {
+        console.error("Middleware Auth Error:", error);
+        return NextResponse.next(); 
       }
     }
 
+    // 4. ПРОКИДЫВАНИЕ ЗАГОЛОВКОВ
     const requestHeaders = new Headers(req.headers);
     requestHeaders.set('x-pathname', pathname);
     
     const response = NextResponse.next({ request: { headers: requestHeaders } });
-
+    
     if (pathname.startsWith("/admin") || pathname.startsWith("/partner")) {
       response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     }
@@ -73,11 +80,15 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         const { pathname } = req.nextUrl;
-        if (pathname.startsWith("/auth") || pathname === "/denied") return true;
+        if (pathname.startsWith("/auth") || pathname === "/denied" || pathname === "/") {
+          return true;
+        }
         return !!token;
       },
     },
-    pages: { signIn: "/auth/login" },
+    pages: {
+      signIn: "/auth/login",
+    },
   }
 );
 

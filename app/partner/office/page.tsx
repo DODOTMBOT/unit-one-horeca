@@ -25,6 +25,11 @@ export default async function PartnerOfficeHub() {
       info: "УПРАВЛЕНИЕ ШТАТОМ И РОЛЯМИ", 
       href: "/partner/office/staff" 
     },
+        { 
+      name: "РОЛИ И ПРАВА", 
+      info: "УПРАВЛЕНИЕ ДОСТУПАМИ СОТРУДНИКОВ", 
+      href: "/partner/office/roles" 
+    },
     { 
       name: "РЕСТОРАНЫ", 
       info: "РЕДАКТИРОВАНИЕ И СОЗДАНИЕ ОБЪЕКТОВ", 

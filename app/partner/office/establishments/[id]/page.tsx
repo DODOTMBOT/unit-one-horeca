@@ -4,38 +4,63 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { 
   ShieldCheck, MapPin, Users, HardDrive, 
-  Clock, ExternalLink, Edit3, Info, ClipboardList, 
-  Thermometer, LayoutGrid 
+  Clock, ExternalLink, Edit3, Info, 
+  LayoutGrid 
 } from "lucide-react";
 import Link from "next/link";
 import BackButton from "@/components/ui/BackButton";
 
+// В Next.js 15 params — это Promise, его ОБЯЗАТЕЛЬНО нужно await
+export default async function AdminEstablishmentDetailPage(props: { params: Promise<{ id: string }> }) {
+  // --- ЛОГИРОВАНИЕ НАЧАЛА ЗАПРОСА ---
+  console.log("--------------------------------------------------");
+  console.log("🚀 [SERVER] Запрос детальной страницы заведения");
 
-
-export default async function AdminEstablishmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
-  if (!session) redirect("/auth/login");
+  
+  // Лог сессии
+  if (!session) {
+    console.log("❌ [AUTH] Сессия не найдена, перенаправление на login");
+    redirect("/auth/login");
+  } else {
+    console.log(`✅ [AUTH] Пользователь: ${session.user?.email} (Роль: ${session.user?.role})`);
+  }
 
-  const { id } = await params;
+  // КЛЮЧЕВОЙ МОМЕНТ: Дожидаемся параметров
+  const { id } = await props.params;
+  console.log(`📍 [PARAMS] Получен ID из URL: ${id}`);
 
-  if (!id) notFound();
+  if (!id) {
+    console.log("⚠️ [PARAMS] ID отсутствует");
+    notFound();
+  }
 
+  // Логирование перед запросом к БД
+  console.log("🔍 [PRISMA] Поиск заведения в базе данных...");
+  
   const est = await prisma.establishment.findUnique({
     where: { id },
     include: {
       owner: true,
-      employees: true,
-      equipment: true,
-      _count: {
-        select: {
-          healthLogs: true,
-          tempLogs: true,
-        }
+      employees: {
+        orderBy: { surname: 'asc' }
+      },
+      equipment: {
+        orderBy: { createdAt: 'desc' }
       }
     }
   });
 
-  if (!est) notFound();
+  if (!est) {
+    console.log(`❌ [PRISMA] Заведение с ID ${id} НЕ НАЙДЕНО`);
+    notFound();
+  }
+
+  // Финальный лог успешной загрузки данных
+  console.log(`✨ [DATA] Заведение найдено: "${est.name}"`);
+  console.log(`👥 [DATA] Сотрудников: ${est.employees.length}`);
+  console.log(`⚙️ [DATA] Оборудования: ${est.equipment.length}`);
+  console.log("--------------------------------------------------");
 
   return (
     <div data-page="partner-terminal" className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
@@ -103,18 +128,18 @@ export default async function AdminEstablishmentDetailPage({ params }: { params:
                 </div>
 
                 <div className="space-y-4">
-                    {est.employees.map((staff: any) => (
-                        <div key={staff.id} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white transition-all group">
+                    {est.employees.map((employee: any) => (
+                        <div key={employee.id} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:bg-white transition-all group">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center font-black text-[10px] text-slate-300 border border-slate-100">
-                                    {staff.name?.[0]}{staff.surname?.[0]}
+                                    {employee.name?.[0]}{employee.surname?.[0]}
                                 </div>
                                 <div>
-                                    <p className="text-xs font-black uppercase tracking-tight text-[#1e1b4b]">{staff.name} {staff.surname}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 tracking-tight">{staff.role}</p>
+                                    <p className="text-xs font-black uppercase tracking-tight text-[#1e1b4b]">{employee.name} {employee.surname}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 tracking-tight">{employee.role}</p>
                                 </div>
                             </div>
-                            <Link href={`/partner/profile/${staff.id}`} className="p-3 bg-white border border-slate-100 rounded-xl text-slate-300 hover:text-indigo-600 transition-all shadow-sm">
+                            <Link href={`/profile/${employee.id}`} className="p-3 bg-white border border-slate-100 rounded-xl text-slate-300 hover:text-indigo-600 transition-all shadow-sm">
                                 <ExternalLink size={14} />
                             </Link>
                         </div>
@@ -141,7 +166,7 @@ export default async function AdminEstablishmentDetailPage({ params }: { params:
                                 </div>
                                 <div>
                                     <p className="text-xs font-black uppercase tracking-tight text-[#1e1b4b]">{eq.name}</p>
-                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{eq.type}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{eq.type || "Оборудование"}</p>
                                 </div>
                             </div>
                         </div>

@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";     
 import { prisma } from "@/lib/prisma";       
 import { NextAuthProvider } from '@/components/Providers';
+import { Toaster } from 'react-hot-toast'; // Добавлено для чек-листов
 
 import UserNav from '@/components/UserNav'; 
 import HeaderCartBtn from "@/components/cart/HeaderCartBtn";
@@ -60,6 +61,20 @@ export default async function RootLayout({
     <html lang="ru">
       <body className={`${inter.variable} bg-[#F3F4F6] text-slate-900 h-screen w-screen flex flex-col overflow-hidden font-sans`}>
         <NextAuthProvider>
+          {/* TOASTER: Всплывающие уведомления (Зеленые/Красные плашки) */}
+          <Toaster 
+            position="top-center" 
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#1F2937',
+                color: '#fff',
+                borderRadius: '1rem',
+                fontSize: '14px',
+                fontWeight: 'bold'
+              },
+            }}
+          />
           
           {/* HEADER CONTAINER: Парящий слой */}
           <div className="absolute top-0 left-0 right-0 z-50 flex justify-center pt-4 px-4 pointer-events-none">
@@ -77,10 +92,6 @@ export default async function RootLayout({
                   
                   {/* МЕНЮ: Стили для ссылок внутри черного хедера */}
                   <div className="hidden md:block">
-                    {/* Мы передаем menuItems в компонент. 
-                       Сам компонент HeaderNavbar должен использовать классы, которые мы здесь задаем или наследует цвет текста.
-                       Здесь задаем контекст белого текста и ховера.
-                    */}
                     <div className="text-gray-300 hover:text-white [&_a]:transition-colors [&_a:hover]:text-[#a3e635]">
                       <HeaderNavbar menuItems={menuItems} />
                     </div>

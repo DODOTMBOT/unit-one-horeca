@@ -1,46 +1,51 @@
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const establishmentId = searchParams.get("establishmentId");
-    const month = parseInt(searchParams.get("month") || "0");
-    const year = parseInt(searchParams.get("year") || "2025");
+    const year = parseInt(searchParams.get("year") || "");
+    const month = parseInt(searchParams.get("month") || "");
 
-    if (!establishmentId) return NextResponse.json([], { status: 400 });
+    if (!establishmentId || isNaN(year) || isNaN(month)) {
+      return NextResponse.json({ error: "Missing params" }, { status: 400 });
+    }
 
     const startDate = new Date(year, month, 1);
-    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59);
 
     const logs = await prisma.healthLog.findMany({
       where: {
         establishmentId,
-        date: {
-          gte: startDate,
-          lte: endDate
-        }
+        date: { gte: startDate, lte: endDate }
       },
-      select: {
-        employeeId: true,
-        date: true,
-        comment: true,
-        inspector: {
-          select: { surname: true }
-        }
+      include: {
+        inspector: { select: { surname: true } }
       }
     });
 
+    // Форматируем для фронтенда
     const formattedLogs = logs.map(log => ({
-      employeeId: log.employeeId,
-      date: log.date,
-      comment: log.comment,
-      inspectorSurname: log.inspector?.surname || "Менеджер"
+      ...log,
+      inspectorSurname: log.inspector?.surname
     }));
 
-    return NextResponse.json(formattedLogs);
+    // ВАЖНО: Добавляем заголовки, чтобы браузер не кэшировал пустой ответ
+    return NextResponse.json(formattedLogs, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      }
+    });
   } catch (error) {
-    console.error("MONTHLY_HEALTH_ERROR:", error);
-    return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
+    console.error("HEALTH_GET_MONTHLY_ERROR:", error);
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

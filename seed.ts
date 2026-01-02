@@ -3,77 +3,75 @@ const prisma = new PrismaClient()
 
 async function main() {
   const permissions = [
-    // --- Уровень 1: КОРНИ ---
-    { name: '/admin', description: 'Панель администратора' },
-    { name: '/partner', description: 'Панель партнёра' },
+    // --- УРОВЕНЬ 1: КОРНИ (category определяет большой блок) ---
+    { name: '/admin', description: 'Панель администратора', category: 'admin', parentPath: null },
+    { name: '/partner', description: 'Панель партнёра', category: 'partner', parentPath: null },
 
-    // --- Уровень 2: АДМИН ---
-    { name: '/admin/settings', description: 'Настройка сайта' },
-    { name: '/admin/products', description: 'Маркетплейс решений' },
-    { name: '/admin/haccp', description: 'Журналы ХАССП (Админ)' },
-    { name: '/admin/settings/roles', description: 'Управление ролями' },
-    { name: '/admin/users/list', description: 'Список пользователей' },
+    // --- УРОВЕНЬ 2: ПОДРАЗДЕЛЫ ---
+    { name: '/partner/office', description: 'Менеджер офиса', category: 'partner', parentPath: '/partner' },
+    { name: '/partner/haccp', description: 'Жкрналы НАССР', category: 'partner', parentPath: '/partner' },
 
-    // --- Уровень 2: ПАРТНЕР ---
-    { name: '/partner/analytics', description: 'Аналитика и мониторинг' },
-    
-    // === ХАССП (Глобальные разделы) ===
-    { name: '/partner/haccp', description: 'Журналы HACCP (Общий)' },
-    { name: '/partner/haccp/health', description: 'Журнал здоровья' },
-    { name: '/partner/haccp/temperature', description: 'Температуры' },
-    { name: '/partner/haccp/fryer', description: 'Фритюрные жиры' },
-    { name: '/partner/haccp/quality', description: 'Бракераж' },
-    
-    // === ОФИС (Вложенность) ===
-    { name: '/partner/office', description: 'Менеджер офиса' },
-    { name: '/partner/office/staff', description: 'Сотрудники' },
-    { name: '/partner/office/establishments', description: 'Рестораны' },
-    { name: '/partner/office/equipment', description: 'Оборудование' },
+    // --- УРОВЕНЬ 3: ГЛУБОКАЯ ВЛОЖЕННОСТЬ (Тот самый 2motherid) ---
+    { name: '/partner/office/staff', description: 'Сотрудники', category: 'partner', parentPath: '/partner/office' },
+    { name: '/partner/office/roles', description: 'Роли и права', category: 'partner', parentPath: '/partner/office' },
+    { name: '/partner/office/establishments', description: 'Рестораны', category: 'partner', parentPath: '/partner/office' },
+    { name: '/partner/office/equipment', description: 'Оборудование', category: 'partner', parentPath: '/partner/office' }, 
+    { name: '/partner/haccp/health', description: 'Журнал здоровья', category: 'partner', parentPath: '/partner/haccp' },  
+    { name: '/partner/haccp/temperature', description: 'Журнал температурных режимов', category: 'partner', parentPath: '/partner/haccp' },  
+    { name: '/partner/office/establishments/[id]/temperature', description: 'Заполнение журнала температурных режимов', category: 'partner', parentPath: '/partner/haccp/temperature' },  
+    { name: '/partner/office/establishments/[id]/health', description: 'Заполнение журнала здоровья', category: 'partner', parentPath: '/partner/haccp/health' },  ]
 
-    // === ДИНАМИЧЕСКИЕ ПУТИ (Работа внутри ресторанов) ===
-    // Эти записи позволят Middleware понимать, что у пользователя есть право заходить в модули конкретных заведений
-    { name: '/partner/establishments', description: 'Доступ к модулям ресторанов' },
-    { name: '/partner/establishments/health', description: 'Журнал здоровья в конкретном ресторане' },
-    { name: '/partner/establishments/temperature', description: 'Температуры в конкретном ресторане' },
-  ]
 
-  console.log('⏳ Очистка старых прав...')
+  console.log('⏳ Очистка данных...')
   await prisma.rolePermission.deleteMany({})
   await prisma.permission.deleteMany({})
+  await prisma.role.deleteMany({ where: { ownerId: null } }) 
 
-  console.log('⏳ Запись новых путей в базу...')
+  console.log('⏳ Создание разрешений...')
+  // 1. Создаем все записи без связей
   for (const p of permissions) {
-    await prisma.permission.create({ data: p })
-  }
-
-  const ownerRole = await prisma.role.findUnique({ where: { name: 'OWNER' } })
-  
-  if (ownerRole) {
-    console.log('⏳ Выдача прав владельцу...')
-    const allPerms = await prisma.permission.findMany()
-    await prisma.rolePermission.createMany({
-      data: allPerms.map(perm => ({
-        roleId: ownerRole.id,
-        permissionId: perm.id
-      }))
+    await prisma.permission.create({
+      data: { name: p.name, description: p.description, category: p.category }
     })
   }
+
+  // 2. Проставляем иерархию (parentId)
+  for (const p of permissions) {
+    if (p.parentPath) {
+      const parent = await prisma.permission.findUnique({ where: { name: p.parentPath } })
+      if (parent) {
+        await prisma.permission.update({
+          where: { name: p.name },
+          data: { parentId: parent.id }
+        })
+      }
+    }
+  }
+
+  console.log('⏳ Создание системных ролей...')
+  const ownerRole = await prisma.role.create({ data: { name: 'OWNER', ownerId: null } })
+  const partnerRole = await prisma.role.create({ data: { name: 'PARTNER', ownerId: null } })
+  const adminRole = await prisma.role.create({ data: { name: 'ADMIN', ownerId: null } })
+
+  const allPerms = await prisma.permission.findMany()
+  await prisma.rolePermission.createMany({
+    data: allPerms.map(perm => ({ roleId: ownerRole.id, permissionId: perm.id }))
+  })
+
+  const partnerPerms = allPerms.filter(p => p.category === 'partner')
+  await prisma.rolePermission.createMany({
+    data: partnerPerms.map(perm => ({ roleId: partnerRole.id, permissionId: perm.id }))
+  })
 
   const myEmail = "ar@ar.ru"
-  if (ownerRole) {
-    await prisma.user.updateMany({
+  const user = await prisma.user.findUnique({ where: { email: myEmail } })
+  if (user) {
+    await prisma.user.update({
       where: { email: myEmail },
-      data: { 
-        role: 'OWNER', 
-        roleId: ownerRole.id 
-      }
+      data: { role: 'OWNER', roleId: ownerRole.id }
     })
-    console.log(`✅ Аккаунт ${myEmail} обновлен до OWNER`)
   }
-
-  console.log('✅ База успешно синхронизирована.')
+  console.log('✅ База синхронизирована.')
 }
 
-main()
-  .catch((e) => { console.error(e); process.exit(1) })
-  .finally(async () => { await prisma.$disconnect() })
+main().finally(() => prisma.$disconnect())

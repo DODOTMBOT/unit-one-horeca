@@ -1,7 +1,18 @@
 import { PrismaClient } from '@prisma/client'
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+// Определяем интерфейс для глобального объекта, чтобы TS не ругался на переменную prisma
+const prismaClientSingleton = () => {
+  return new PrismaClient({
+    // Опционально: включи логирование ошибок в консоль
+    log: ['error'],
+  })
+}
 
-export const prisma = globalForPrisma.prisma || new PrismaClient()
+declare global {
+  var prisma: undefined | ReturnType<typeof prismaClientSingleton>
+}
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// Используем существующий экземпляр или создаем новый (Singleton)
+export const prisma = globalThis.prisma ?? prismaClientSingleton()
+
+if (process.env.NODE_ENV !== 'production') globalThis.prisma = prisma

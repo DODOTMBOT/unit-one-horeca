@@ -6,14 +6,21 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "PARTNER") {
+    
+    // 1. Снимаем жесткое ограничение только для PARTNER
+    if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+
+    // 2. Определяем эффективного владельца данных.
+    // Если зашел сотрудник — берем ID его работодателя (partnerId).
+    // Если сам партнер — берем его собственный ID.
+    const effectiveOwnerId = (session.user as any).partnerId || session.user.id;
 
     const { searchParams } = new URL(request.url);
     const month = parseInt(searchParams.get("month") || new Date().getMonth().toString());
     const year = parseInt(searchParams.get("year") || new Date().getFullYear().toString());
-    const type = searchParams.get("type") || "health"; // По умолчанию здоровье, но мы передаем "temperature"
+    const type = searchParams.get("type") || "health";
 
     const now = new Date();
     const startOfMonth = new Date(year, month, 1);
@@ -23,11 +30,11 @@ export async function GET(request: Request) {
     const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
     const checkUntil = isCurrentMonth ? todayStart : new Date(year, month + 1, 0);
 
-    // Загружаем заведения вместе с нужными логами и списком оборудования
+    // 3. Загружаем заведения, используя effectiveOwnerId
     const establishments = await prisma.establishment.findMany({
-      where: { ownerId: session.user.id },
+      where: { ownerId: effectiveOwnerId },
       include: {
-        equipment: true, // Нужно для расчета пропусков по каждому прибору
+        equipment: true,
         healthLogs: type === "health" ? {
           where: { date: { gte: startOfMonth, lte: endOfMonth } },
           select: { date: true, comment: true }
@@ -45,31 +52,22 @@ export async function GET(request: Request) {
       let isFilledToday = false;
 
       if (type === "temperature") {
-        // --- ЛОГИКА ДЛЯ ТЕМПЕРАТУРНОГО РЕЖИМА ---
         const totalEquipCount = est.equipment.length;
         
-        // Проверка на сегодня (заполнено ли всё утро/вечер на текущий момент)
-        // Для простоты: если есть хоть одна запись за сегодня
         isFilledToday = est.tempLogs.some(
           (log) => new Date(log.date).toDateString() === todayStart.toDateString()
         );
 
-        // Расчет пропусков по дням
         for (let d = new Date(startOfMonth); d <= checkUntil; d.setDate(d.getDate() + 1)) {
           const dateStr = d.toDateString();
-          
-          // Для каждого дня проверяем, чтобы у каждого оборудования было 2 записи (смена 0 и 1)
           const dayLogs = est.tempLogs.filter(l => new Date(l.date).toDateString() === dateStr);
-          
-          // День считается пропущенным, если количество записей меньше чем (кол-во оборудования * 2)
-          // Или если оборудования вообще нет
           const expectedLogsCount = totalEquipCount * 2;
+          
           if (totalEquipCount === 0 || dayLogs.length < expectedLogsCount) {
             facilitySkipDays.push(d.getDate());
           }
         }
       } else {
-        // --- ЛОГИКА ДЛЯ ЖУРНАЛА ЗДОРОВЬЯ (осталась прежней) ---
         isFilledToday = est.healthLogs.some(
           (log) => new Date(log.date).toDateString() === todayStart.toDateString() && log.comment !== 'в'
         );

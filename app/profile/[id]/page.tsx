@@ -2,12 +2,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { 
-  ShieldCheck, Mail, Phone, 
-  MapPin, Briefcase, FileText, Printer, Edit3, ArrowLeft // Добавлен ArrowLeft для иконок внизу
-} from "lucide-react";
-import Link from "next/link";
-import BackButton from "@/components/ui/BackButton"; // Импорт новой кнопки
+import { ShieldCheck, Mail, Phone, FileText, Edit3 } from "lucide-react";
+import BackButton from "@/components/ui/BackButton";
+import EstablishmentList from "@/components/profile/EstablishmentList"; // Импортируем новый компонент
 
 export default async function AdminStaffProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const session = await getServerSession(authOptions);
@@ -18,24 +15,26 @@ export default async function AdminStaffProfilePage({ params }: { params: Promis
   const user = await prisma.user.findUnique({
     where: { id },
     include: {
-      establishments: true,
+      establishments: true, 
+      ownedEstablishments: true,
       parentPartner: true,
     }
   }) as any;
 
   if (!user) notFound();
 
+  const isPartner = user.role === "PARTNER";
+  const displayEstablishments = isPartner ? user.ownedEstablishments : user.establishments;
+  const listTitle = isPartner ? "Собственные рестораны" : "Объекты доступа";
+
   return (
     <div data-page="partner-terminal" className="min-h-screen bg-[#F8FAFC] font-sans text-[#1e1b4b] p-6 lg:p-12">
       <div className="max-w-[1200px] mx-auto">
         
-        {/* HEADER BAR */}
         <header className="flex items-center justify-between mb-12">
           <div className="flex-1">
-            {/* ИСПОЛЬЗОВАНИЕ КЛИЕНТСКОЙ КНОПКИ НАЗАД */}
             <BackButton />
           </div>
-
           <div className="flex items-center gap-3">
              <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-full flex items-center gap-2">
                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
@@ -62,10 +61,10 @@ export default async function AdminStaffProfilePage({ params }: { params: Promis
                 )}
               </div>
               <h2 className="text-xl font-black uppercase tracking-tight mb-2 leading-tight">
-                {user.surname} <br /> {user.name} {user.patronymic || ""}
+                {user.surname} <br /> {user.name}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-6">
-                {user.role === 'MANAGER' ? 'Управляющий' : 'Линейный персонал'}
+                {isPartner ? 'Владелец бизнеса' : (user.role === 'MANAGER' ? 'Управляющий' : 'Линейный персонал')}
               </p>
               
               <div className="pt-6 border-t border-slate-50 space-y-3">
@@ -95,62 +94,36 @@ export default async function AdminStaffProfilePage({ params }: { params: Promis
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
                   <div>
-                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Мед. книжка до</p>
-                    <p className="text-[13px] font-bold text-slate-700">{user.medCardDate || "Не указано"}</p>
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Партнер</p>
+                    <p className="text-[13px] font-bold text-slate-700 uppercase">
+                      {isPartner ? "Является владельцем" : (user.parentPartner ? `Партнер: ${user.parentPartner.name} ${user.parentPartner.surname}` : "Не привязан")}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Дата приема</p>
-                    <p className="text-[13px] font-bold text-slate-700">{user.hireDate || "02.11.2025"}</p>
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Мед. книжка до</p>
+                    <p className="text-[13px] font-bold text-slate-700">{user.medCardDate || "Не указано"}</p>
                   </div>
                 </div>
                 <div className="space-y-6">
                   <div>
+                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Дата приема</p>
+                    <p className="text-[13px] font-bold text-slate-700">{user.hireDate || "02.11.2025"}</p>
+                  </div>
+                  <div>
                     <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">ИНН / ПФР</p>
                     <p className="text-[13px] font-bold text-slate-700">{user.inn || "—"} / {user.pfr || "—"}</p>
                   </div>
-                  <div>
-                    <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest mb-2">Штрих-код</p>
-                    <button className="flex items-center gap-2 text-indigo-500 hover:text-indigo-600 transition-colors">
-                      <Printer size={14} />
-                      <span className="text-[11px] font-black uppercase tracking-widest">Распечатать</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-10 rounded-[2.5rem] border border-slate-100 shadow-sm">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center">
-                   <MapPin size={20} />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-slate-800">Объекты доступа</h3>
-              </div>
+            {/* ВЫЗОВ КЛИЕНТСКОГО КОМПОНЕНТА С ВЫПАДАЮЩИМ СПИСКОМ */}
+            <EstablishmentList 
+              establishments={displayEstablishments} 
+              title={listTitle} 
+              isPartner={isPartner}
+            />
 
-              <div className="space-y-3">
-                {user.establishments && user.establishments.length > 0 ? (
-                  user.establishments.map((est: any) => (
-                    <div key={est.id} className="flex items-center justify-between p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400">
-                          <Briefcase size={18} />
-                        </div>
-                        <div>
-                          <p className="text-xs font-black uppercase tracking-tight text-slate-800">{est.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{est.city}</p>
-                        </div>
-                      </div>
-                      {/* Ссылка на объект остается прямой, так как это переход вглубь системы */}
-                      <Link href={`/partner/establishments/${est.id}`} className="p-3 bg-white border border-slate-100 rounded-xl text-slate-300 hover:text-indigo-500 transition-all">
-                        <ArrowLeft size={16} className="rotate-180" />
-                      </Link>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-[11px] font-black text-slate-300 uppercase italic">Сотрудник не закреплен за объектами</p>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </div>

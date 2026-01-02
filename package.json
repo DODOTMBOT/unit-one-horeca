@@ -11,6 +11,7 @@
   "dependencies": {
     "@a2seven/yoo-checkout": "^1.1.4",
     "@next-auth/prisma-adapter": "^1.0.7",
+    "@vercel/blob": "^2.0.0",
     "bcrypt": "^6.0.0",
     "date-fns": "^4.1.0",
     "framer-motion": "^12.23.26",
@@ -20,6 +21,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.69.0",
+    "react-hot-toast": "^2.6.0",
     "swr": "^2.3.8",
     "use-debounce": "^10.0.6",
     "xlsx": "^0.18.5"
@@ -35,6 +37,10 @@
     "eslint-config-next": "16.1.1",
     "prisma": "^5.17.0",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "npx tsx seed.ts"
   }
 }

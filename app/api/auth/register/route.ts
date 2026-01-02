@@ -11,22 +11,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Заполните все обязательные поля" }, { status: 400 });
     }
 
-    // Проверка на существующего пользователя
     const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { login }]
-      }
+      where: { OR: [{ email }, { login }] }
     });
 
     if (existingUser) {
-      return NextResponse.json({ error: "Пользователь с таким email или логином уже существует" }, { status: 400 });
+      return NextResponse.json({ error: "Пользователь уже существует" }, { status: 400 });
     }
 
-    // Хеширование пароля
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Базовые данные пользователя
-    let data: any = {
+    let userData: any = {
       login,
       name,
       surname,
@@ -35,46 +30,40 @@ export async function POST(req: Request) {
     };
 
     if (roleType === "partner") {
-      // Логика для Владельца кафе (Партнера)
-      data.role = "PARTNER";
-    } else {
-      // Логика для Сотрудника
-      data.role = "USER";
+      userData.role = "PARTNER";
 
-      // Ищем заведение по коду приглашения
-      if (!inviteCode) {
-        return NextResponse.json({ error: "Код заведения обязателен для сотрудника" }, { status: 400 });
+      // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: 
+      // Ищем в таблице Role ID роли "PARTNER", созданной админом (где ownerId === null)
+      const systemPartnerRole = await prisma.role.findFirst({
+        where: {
+          name: "PARTNER",
+          ownerId: null // Системная роль
+        }
+      });
+
+      if (systemPartnerRole) {
+        userData.roleId = systemPartnerRole.id; // Привязываем роль со всеми правами
       }
+    } else {
+      userData.role = "USER";
+      if (!inviteCode) return NextResponse.json({ error: "Код обязателен" }, { status: 400 });
 
       const establishment = await prisma.establishment.findUnique({
         where: { inviteCode: inviteCode.toUpperCase() },
         select: { id: true, ownerId: true }
       });
       
-      if (!establishment) {
-        return NextResponse.json({ error: "Код заведения не найден. Проверьте правильность ввода." }, { status: 400 });
-      }
+      if (!establishment) return NextResponse.json({ error: "Код не найден" }, { status: 400 });
 
-      // Настройка связей для Many-to-Many
-      // Поле establishmentId удалено, используем establishments.connect
-      data.establishments = {
-        connect: { id: establishment.id }
-      };
-      
-      // Привязываем сотрудника к родителю-партнеру
-      data.partnerId = establishment.ownerId; 
+      userData.establishments = { connect: { id: establishment.id } };
+      userData.partnerId = establishment.ownerId; 
     }
 
     const newUser = await prisma.user.create({
-      data: data
+      data: userData
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: "Регистрация успешна",
-      user: { id: newUser.id, role: newUser.role } 
-    });
-
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("REGISTRATION_ERROR", error);
     return NextResponse.json({ error: "Ошибка при регистрации" }, { status: 500 });

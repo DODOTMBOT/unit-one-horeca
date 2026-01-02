@@ -1,19 +1,22 @@
-import { prisma } from "../../../../lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../../../lib/auth";
+import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "PARTNER") {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Если это сотрудник, берем ID его партнера, если сам партнер — его собственный ID
+    const effectiveOwnerId = (session.user as any).partnerId || session.user.id;
 
     const equipment = await prisma.equipment.findMany({
       where: { 
         establishment: { 
-          ownerId: session.user.id 
+          ownerId: effectiveOwnerId 
         } 
       },
       include: { 
@@ -25,26 +28,26 @@ export async function GET() {
     });
     return NextResponse.json(equipment);
   } catch (error) {
-    return NextResponse.json({ error: " Ошибка загрузки" }, { status: 500 });
+    return NextResponse.json({ error: "Ошибка загрузки" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "PARTNER") {
+    // Разрешаем доступ любому авторизованному пользователю, так как Middleware проверил путь
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { name, type, establishmentId } = body;
+    const { name, type, zone, establishmentId } = body;
 
     const newEquipment = await prisma.equipment.create({
       data: {
-        name,
-        type,
-        // Мы НЕ передаем serialNumber, если Prisma его не видит, 
-        // либо передаем только те поля, что есть в схеме выше
+        name: name.toUpperCase(),
+        type: type.toUpperCase(),
+        zone: zone?.toUpperCase(),
         establishment: {
           connect: { id: establishmentId }
         }

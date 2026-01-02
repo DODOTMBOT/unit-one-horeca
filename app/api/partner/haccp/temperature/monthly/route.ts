@@ -1,10 +1,13 @@
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
 
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { searchParams } = new URL(req.url);
     const establishmentId = searchParams.get("establishmentId");
     const year = parseInt(searchParams.get("year") || "");
@@ -14,37 +17,35 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing params" }, { status: 400 });
     }
 
-    // Определяем начало и конец месяца для фильтрации
     const startDate = new Date(year, month, 1);
     const endDate = new Date(year, month + 1, 0, 23, 59, 59);
 
     const logs = await prisma.temperatureLog.findMany({
       where: {
-        establishmentId: establishmentId,
-        date: {
-          gte: startDate,
-          lte: endDate
-        }
+        establishmentId,
+        date: { gte: startDate, lte: endDate }
       },
-      // Подгружаем фамилию того, кто вносил, если нужно
       include: {
-        user: {
-          select: {
-            surname: true
-          }
-        }
+        user: { select: { surname: true } } // Загружаем фамилию того, кто внес данные
       }
     });
 
-    // Форматируем данные, чтобы на фронте было удобно брать фамилию
+    // Форматируем данные для таблицы фронтенда
     const formattedLogs = logs.map(log => ({
       ...log,
-      inspectorSurname: log.user?.surname || "Менеджер"
+      inspectorSurname: log.user?.surname || ""
     }));
 
-    return NextResponse.json(formattedLogs);
+    // ВАЖНО: Добавляем заголовки для предотвращения кэширования
+    return NextResponse.json(formattedLogs, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+      }
+    });
   } catch (error) {
-    console.error("Критическая ошибка API [TEMPERATURE_MONTHLY_GET]:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    console.error("TEMP_GET_MONTHLY_ERROR:", error);
+    return NextResponse.json({ error: "Internal Error" }, { status: 500 });
   }
 }

@@ -3,23 +3,26 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-// --- GET: Получение всех сотрудников партнера ---
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
-    if (!session || (session.user.role !== "PARTNER" && session.user.role !== "OWNER")) {
-      return NextResponse.json({ error: "Доступ запрещен" }, { status: 403 });
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUserId = (session.user as any).id;
+    // КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+    // Если это партнер — берем его ID. 
+    // Если это сотрудник — берем ID его партнера (босса) из поля partnerId.
+    const effectivePartnerId = session.user.partnerId || session.user.id;
 
     const staff = await prisma.user.findMany({
       where: {
-        // ИСПРАВЛЕНО: Тянем всех, кто привязан к ID партнера напрямую.
-        // Это гарантирует, что даже при пустом массиве заведений сотрудник останется в списке.
-        partnerId: currentUserId,
-        role: { in: ["USER", "MANAGER"] } 
+        OR: [
+          { partnerId: effectivePartnerId }, // Все сотрудники этого партнера
+          { id: effectivePartnerId }        // Сам партнер (чтобы видел себя в списке)
+        ],
+        role: { in: ["USER", "MANAGER", "PARTNER"] } 
       },
       select: {
         id: true,
@@ -27,6 +30,11 @@ export async function GET() {
         surname: true,
         email: true,
         role: true,
+        roleId: true,
+        image: true,
+        newRole: {
+          select: { name: true }
+        },
         establishments: {
           select: { 
             id: true, 
@@ -35,9 +43,7 @@ export async function GET() {
           }
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: { createdAt: 'desc' }
     });
 
     return NextResponse.json(staff);
@@ -47,38 +53,32 @@ export async function GET() {
   }
 }
 
-// --- PATCH: Изменение роли ---
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || session.user.role !== "PARTNER") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Права на изменение ролей обычно есть только у PARTNER/OWNER
+    if (!session || (session.user.role !== "PARTNER" && session.user.role !== "OWNER")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { userId, newRole } = await req.json();
-    const currentUserId = (session.user as any).id;
+    const { userId, roleId } = await req.json();
+    const effectivePartnerId = session.user.partnerId || session.user.id;
 
-    // ИСПРАВЛЕНО: Проверка прав теперь тоже идет по partnerId
+    // Проверяем, принадлежит ли сотрудник этому же юридическому контуру
     const checkUser = await prisma.user.findFirst({
-      where: {
-        id: userId,
-        partnerId: currentUserId
-      }
+      where: { id: userId, partnerId: effectivePartnerId }
     });
 
-    if (!checkUser) {
-      return NextResponse.json({ error: "Сотрудник не найден в вашем штате" }, { status: 403 });
-    }
+    if (!checkUser) return NextResponse.json({ error: "Access Denied" }, { status: 403 });
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { role: newRole },
-      select: { id: true, role: true }
+      data: { roleId: roleId },
+      include: { newRole: true }
     });
 
     return NextResponse.json(updatedUser);
   } catch (error) {
-    console.error("PATCH_STAFF_ROLE_ERROR:", error);
-    return NextResponse.json({ error: "Ошибка обновления" }, { status: 500 });
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
 }

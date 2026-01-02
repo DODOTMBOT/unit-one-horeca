@@ -8,95 +8,66 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      role: string;
+      role: string | null;
+      roleId: string | null;
       permissions: string[];
-      surname?: string | null;
+      establishments: { id: string, name: string }[];
       partnerId?: string | null;
     } & DefaultSession["user"]
-  }
-  interface User {
-    id: string;
-    role: string;
-    surname?: string | null;
-    partnerId?: string | null;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id: string;
-    role: string;
-    permissions: string[];
-    partnerId?: string | null;
   }
 }
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
-  pages: { signIn: "/auth/login" },
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        login: { label: "Логин", type: "text" },
-        password: { label: "Пароль", type: "password" }
-      },
-      async authorize(credentials) {
-        if (!credentials?.login || !credentials?.password) throw new Error("Данные не введены");
-        const user = await prisma.user.findFirst({
-          where: { OR: [{ login: credentials.login }, { email: credentials.login }] }
-        });
-        if (!user || !user.password) throw new Error("Пользователь не найден");
-        const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) throw new Error("Неверный пароль");
-        return { id: user.id, name: user.name, email: user.email, role: user.role, partnerId: user.partnerId };
-      }
-    }),
-  ],
   callbacks: {
     async jwt({ token, user }) {
-      const userId = user?.id || token.id;
-      
+      const userId = user?.id || token.sub;
       if (userId) {
-        // ИСПОЛЬЗУЕМ newRole, так как именно так называется связь в твоей schema.prisma
         const dbUser = await prisma.user.findUnique({
-          where: { id: userId as string },
+          where: { id: userId },
           include: { 
-            newRole: { 
-              include: { 
-                permissions: { 
-                  include: { 
-                    permission: true 
-                  } 
-                } 
-              } 
-            } 
+            establishments: { select: { id: true, name: true } }, 
+            newRole: { include: { permissions: { include: { permission: true } } } } 
           }
         });
 
         if (dbUser) {
           token.id = dbUser.id;
-          token.role = dbUser.role; // Это OWNER/PARTNER из Enuma
+          token.role = dbUser.role;
+          token.roleId = dbUser.roleId;
           token.partnerId = dbUser.partnerId;
-          
-          // Достаем права из newRole
-          const perms = dbUser.newRole?.permissions?.map((p: any) => p.permission.name) || [];
-          token.permissions = perms;
-          
-          console.log("AUTH SUCCESS. Loaded permissions:", perms.length);
+          token.establishments = dbUser.establishments; 
+          token.permissions = dbUser.newRole?.permissions?.map((p: any) => p.permission.name) || [];
         }
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
-        session.user.permissions = token.permissions || [];
-        session.user.partnerId = token.partnerId;
+        session.user.id = token.id as string;
+        session.user.role = token.role as string;
+        session.user.roleId = token.roleId as string;
+        session.user.partnerId = token.partnerId as string;
+        (session.user as any).establishments = token.establishments; 
+        session.user.permissions = (token.permissions as string[]) || [];
       }
       return session;
     },
   },
+  providers: [
+    CredentialsProvider({
+      name: "Credentials",
+      credentials: { login: { type: "text" }, password: { type: "password" } },
+      async authorize(credentials) {
+        const user = await prisma.user.findFirst({
+          where: { OR: [{ login: credentials?.login }, { email: credentials?.login }] }
+        });
+        if (user && await bcrypt.compare(credentials!.password, user.password!)) {
+          return { id: user.id, name: user.name, email: user.email, role: user.role, roleId: user.roleId, partnerId: user.partnerId };
+        }
+        return null;
+      }
+    }),
+  ],
 };

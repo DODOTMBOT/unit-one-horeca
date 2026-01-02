@@ -10,11 +10,11 @@ datasource db {
 // --- ПЕРЕЧИСЛЕНИЯ (ENUMS) ---
 
 enum UserRole {
-  OWNER   // Главный администратор всей платформы
-  ADMIN   // Системный администратор
-  PARTNER // Владелец кафе (бизнеса)
-  MANAGER // Управляющий (назначается партнером)
-  USER    // Линейный сотрудник
+  OWNER   // ГЛАВНЫЙ АДМИНИСТРАТОР ПЛАТФОРМЫ
+  ADMIN   // СИСТЕМНЫЙ АДМИНИСТРАТОР
+  PARTNER // ВЛАДЕЛЕЦ БИЗНЕСА
+  MANAGER // УПРАВЛЯЮЩИЙ
+  USER    // ЛИНЕЙНЫЙ СОТРУДНИК
 }
 
 enum OrderStatus {
@@ -24,20 +24,47 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum ChecklistItemType {
+  SIMPLE // Просто галочка
+  PHOTO  // Галочка + фото
+}
+
+enum AssignmentStatus {
+  PENDING   // Ожидает выполнения
+  COMPLETED // Выполнен вовремя
+  OVERDUE   // Выполнен с опозданием
+  EXPIRED   // Просрочен (не выполнен вовсе)
+}
+
 // --- СИСТЕМА ДИНАМИЧЕСКИХ РОЛЕЙ И ПРАВ ---
 
 model Role {
-  id          String           @id @default(cuid())
-  name        String           @unique // "OWNER", "ADMIN", "COURIER" и т.д.
-  users       User[]
-  permissions RolePermission[] // Связь с правами доступа
+  id        String   @id @default(cuid())
+  name      String
+  
+  ownerId   String?
+  owner     User?    @relation("RoleCreator", fields: [ownerId], references: [id])
+
+  users       User[]           @relation("UserToRole")
+  permissions RolePermission[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@unique([name, ownerId]) 
 }
 
 model Permission {
-  id          String           @id @default(cuid())
-  name        String           @unique // Например: "users:edit", "haccp:view"
-  description String?          // Описание для админки
-  roles       RolePermission[]
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  category    String?  @default("partner")
+  
+  parentId    String?  
+  parent      Permission?  @relation("PermissionToPermission", fields: [parentId], references: [id])
+  children    Permission[] @relation("PermissionToPermission")
+
+  roles        RolePermission[]
 }
 
 model RolePermission {
@@ -59,44 +86,42 @@ model User {
   surname   String?
   email     String?  @unique
   
-  // Старая роль (Enum) - для обратной совместимости
   role      UserRole @default(USER)
 
-  // НОВЫЕ ПОЛЯ ДЛЯ СВЯЗИ С ТАБЛИЦЕЙ РОЛЕЙ
   roleId    String? 
-  newRole   Role?    @relation(fields: [roleId], references: [id])
+  newRole   Role?    @relation("UserToRole", fields: [roleId], references: [id])
 
-  // --- СВЯЗИ ДЛЯ ПАРТНЕРА ---
+  createdRoles Role[]  @relation("RoleCreator")
+
   ownedEstablishments Establishment[] @relation("OwnerToEstablishment")
+  establishments      Establishment[] @relation("EstablishmentEmployees")
 
-  // --- СВЯЗИ ДЛЯ СОТРУДНИКА (МНОГИЕ-КО-МНОГИМ) ---
-  establishments Establishment[] @relation("EstablishmentEmployees")
+  partnerId      String?
+  parentPartner  User?   @relation("PartnerToStaff", fields: [partnerId], references: [id])
+  staffMembers   User[]  @relation("PartnerToStaff")
 
-  // Иерархия партнеров и персонала
-  partnerId     String?
-  parentPartner User?   @relation("PartnerToStaff", fields: [partnerId], references: [id])
-  staffMembers  User[]  @relation("PartnerToStaff")
+  healthLogs      HealthLog[]      @relation("EmployeeHealthEntries")
+  performedLogs   HealthLog[]      @relation("ManagerHealthChecks")
+  tempLogs        TemperatureLog[]
 
-  // --- ХАССП: Журналы ---
-  healthLogs     HealthLog[]      @relation("EmployeeHealthEntries")
-  performedLogs  HealthLog[]      @relation("ManagerHealthChecks")
-  tempLogs       TemperatureLog[]
-
-  // --- СИСТЕМНЫЕ ПОЛЯ ---
+  // ЧЕК-ЛИСТЫ
+  createdChecklists ChecklistTemplate[] @relation("TemplateCreator")
+  assignedChecklists ChecklistAssignment[] @relation("EmployeeAssignments")
+  
   subscriptionStatus  String?           @default("none")
   subscriptionPlanId  String?
   subscriptionPlan    SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
   subscriptionExpires DateTime?
   paymentMethodId     String?
 
-  emailVerified     DateTime?
-  image             String?
-  phone             String?
-  restaurantName    String?
-  restaurantAddress String?
-  restaurantFormat  String?
-  birthDate         String?
-  socialLink        String?
+  emailVerified      DateTime?
+  image              String?
+  phone              String?
+  restaurantName     String?
+  restaurantAddress  String?
+  restaurantFormat   String?
+  birthDate          String?
+  socialLink         String?
 
   accounts  Account[]
   sessions  Session[]
@@ -109,97 +134,175 @@ model User {
 }
 
 model Establishment {
-  id          String  @id @default(uuid())
+  id          String   @id @default(uuid())
   name        String
   city        String
   address     String
-  inviteCode  String? @unique
+  inviteCode  String?  @unique
 
-  ownerId String
-  owner   User    @relation("OwnerToEstablishment", fields: [ownerId], references: [id])
+  ownerId     String
+  owner       User     @relation("OwnerToEstablishment", fields: [ownerId], references: [id])
 
-  employees User[] @relation("EstablishmentEmployees")
+  employees   User[]   @relation("EstablishmentEmployees")
 
-  equipment  Equipment[]
-  healthLogs HealthLog[]
-  tempLogs   TemperatureLog[]
+  equipment   Equipment[]
+  healthLogs  HealthLog[]
+  tempLogs    TemperatureLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // ЧЕК-ЛИСТЫ И ТЕЛЕГРАМ
+  telegramChatId      String?
+  assignedChecklists  ChecklistAssignment[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 // --- ХАССП МОДЕЛИ ---
 
 model Equipment {
-  id      String  @id @default(uuid())
-  name    String
-  type    String?
-  zone    String? 
-  minTemp Float   @default(0)
-  maxTemp Float   @default(8)
+  id              String        @id @default(uuid())
+  name            String
+  type            String?
+  zone            String? 
+  minTemp         Float         @default(0)
+  maxTemp         Float         @default(8)
 
   establishmentId String
   establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
 
-  tempLogs TemperatureLog[]
+  tempLogs        TemperatureLog[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([establishmentId])
 }
 
 model TemperatureLog {
-  id    String   @id @default(uuid())
-  date  DateTime @default(now())
-  value String   // Изменено на String для удобства ввода из формы
-  shift Int      @default(0) // 0 - Утро, 1 - Вечер
+  id              String        @id @default(uuid())
+  date            DateTime      @default(now())
+  value           String        
+  shift           Int           @default(0)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  userId          String
+  user            User          @relation(fields: [userId], references: [id])
 
-  equipmentId String
-  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipmentId     String
+  equipment       Equipment     @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   establishmentId String
   establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
 
-  comment String?
+  comment         String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
-  @@unique([equipmentId, date, shift]) // Уникальный ключ для предотвращения дублей
+  @@unique([equipmentId, date, shift])
   @@index([establishmentId])
   @@index([equipmentId])
   @@index([date])
 }
 
 model HealthLog {
-  id   String   @id @default(uuid())
-  date DateTime @default(now())
+  id              String        @id @default(uuid())
+  date            DateTime      @default(now())
 
-  inspectorId String
-  inspector   User   @relation("ManagerHealthChecks", fields: [inspectorId], references: [id])
+  inspectorId     String
+  inspector       User          @relation("ManagerHealthChecks", fields: [inspectorId], references: [id])
 
-  employeeId String
-  employee   User   @relation("EmployeeHealthEntries", fields: [employeeId], references: [id])
+  employeeId      String
+  employee        User          @relation("EmployeeHealthEntries", fields: [employeeId], references: [id])
 
   establishmentId String
   establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
 
-  hasPustules     Boolean @default(false)
-  hasInfections   Boolean @default(false)
-  isFamilyHealthy Boolean @default(true)
+  hasPustules     Boolean       @default(false)
+  hasInfections   Boolean       @default(false)
+  isFamilyHealthy Boolean       @default(true)
   temperature     Float?
 
-  comment String?
+  comment         String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([establishmentId])
   @@index([date])
+}
+
+// --- МОДЕЛИ ЧЕК-ЛИСТОВ ---
+
+model ChecklistTemplate {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  
+  ownerId     String
+  owner       User     @relation("TemplateCreator", fields: [ownerId], references: [id])
+
+  isPermanent Boolean  @default(false)
+  validUntil  DateTime? 
+  
+  isArchived  Boolean  @default(false)
+  
+  items       ChecklistItem[]
+  assignments ChecklistAssignment[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ChecklistItem {
+  id          String   @id @default(cuid())
+  templateId  String
+  template    ChecklistTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  
+  taskText    String
+  type        ChecklistItemType @default(SIMPLE)
+  order       Int               @default(0)
+
+  responses   ChecklistResponse[]
+}
+
+model ChecklistAssignment {
+  id              String   @id @default(cuid())
+  
+  templateId      String
+  template        ChecklistTemplate @relation(fields: [templateId], references: [id])
+  
+  employeeId      String
+  employee        User     @relation("EmployeeAssignments", fields: [employeeId], references: [id])
+  
+  establishmentId String
+  establishment   Establishment @relation(fields: [establishmentId], references: [id], onDelete: Cascade)
+  
+  deadline        DateTime
+  status          AssignmentStatus @default(PENDING)
+  
+  completedAt     DateTime?
+  comment         String?  
+
+  responses       ChecklistResponse[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([establishmentId])
+  @@index([status])
+}
+
+model ChecklistResponse {
+  id           String   @id @default(cuid())
+  assignmentId String
+  assignment   ChecklistAssignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  
+  itemId       String
+  item         ChecklistItem       @relation(fields: [itemId], references: [id])
+  
+  isCompleted  Boolean  @default(false)
+  photoUrl     String?  
 }
 
 // --- МАРКЕТПЛЕЙС И КОНТЕНТ ---
@@ -225,31 +328,31 @@ model Tag {
 }
 
 model Product {
-  id                String  @id @default(uuid())
+  id                String      @id @default(uuid())
   title             String
   shortDescription  String?
-  description       String  @db.Text
+  description       String      @db.Text
   price             Int
 
-  published    Boolean @default(true)
-  requirements Json?   @default("[]")
+  published         Boolean     @default(true)
+  requirements      Json?       @default("[]")
 
-  typeId      String?
-  productType ProductType? @relation(fields: [typeId], references: [id])
-  tags        Tag[]
-  materials   Material[]
-  cartItems   CartItem[]
-  orderItems  OrderItem[]
+  typeId            String?
+  productType       ProductType? @relation(fields: [typeId], references: [id])
+  tags              Tag[]
+  materials         Material[]
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
 
-  badgeText  String?
-  badgeColor String? @default("neutral")
-  bgColor    String? @default("#F3F4F6")
-  imageUrl   String? @db.Text
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  badgeText         String?
+  badgeColor        String?     @default("neutral")
+  bgColor           String?     @default("#F3F4F6")
+  imageUrl          String?     @db.Text
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
 
-  categoryId String?
-  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId        String?
+  category          Category?   @relation(fields: [categoryId], references: [id])
 }
 
 model Material {
@@ -272,18 +375,18 @@ model Order {
 
   userEmail String?
   userId    String?
-  user      User?        @relation(fields: [userId], references: [id])
+  user      User?       @relation(fields: [userId], references: [id])
 
-  items OrderItem[]
+  items      OrderItem[]
 }
 
 model OrderItem {
-  id      String @id @default(uuid())
-  orderId String
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id              String  @id @default(uuid())
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
 
   priceAtPurchase Int
   answers         Json?
@@ -299,58 +402,58 @@ model Cart {
 }
 
 model CartItem {
-  id        String  @id @default(uuid())
+  id        String   @id @default(uuid())
   cartId    String
-  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   productId String
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  answers Json?
+  answers   Json?
 
   createdAt DateTime @default(now())
   @@unique([cartId, productId])
 }
 
 model SubscriptionPlan {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?  @db.Text
-  badgeText   String?
-  features    String[]
+  id                   String   @id @default(uuid())
+  name                 String   @unique
+  description          String?  @db.Text
+  badgeText            String?
+  features             String[]
 
-  priceMonth  Int @default(0)
-  price3Month Int @default(0)
-  price6Month Int @default(0)
-  priceYear   Int @default(0)
+  priceMonth            Int      @default(0)
+  price3Month           Int      @default(0)
+  price6Month           Int      @default(0)
+  priceYear             Int      @default(0)
 
-  canAccessMarketplace Boolean @default(true)
-  canCreateOrders      Boolean @default(true)
-  hasPrioritySupport   Boolean @default(false)
-  hasAnalytics         Boolean @default(false)
+  canAccessMarketplace Boolean  @default(true)
+  canCreateOrders      Boolean  @default(true)
+  hasPrioritySupport   Boolean  @default(false)
+  hasAnalytics         Boolean  @default(false)
 
-  isActive Boolean @default(true)
-  order    Int     @default(0)
+  isActive              Boolean  @default(true)
+  order                 Int      @default(0)
 
-  users     User[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  users                User[]
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
   refresh_token_expires_in Int?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
-  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([provider, providerAccountId])
 }
 
@@ -384,12 +487,12 @@ model MenuItem {
   title     String
   href      String?
   order     Int        @default(0)
-  isAdmin   Boolean    @default(false)
+  isAdmin    Boolean    @default(false)
   isVisible Boolean    @default(true)
 
-  parentId String?
-  parent   MenuItem?  @relation("SubMenuItems", fields: [parentId], references: [id], onDelete: Cascade)
-  children MenuItem[] @relation("SubMenuItems")
+  parentId  String?
+  parent    MenuItem?  @relation("SubMenuItems", fields: [parentId], references: [id], onDelete: Cascade)
+  children  MenuItem[] @relation("SubMenuItems")
 
   createdAt DateTime @default(now())
 }
@@ -402,16 +505,16 @@ model Direction {
   href         String
   isComingSoon Boolean  @default(false)
 
-  imageUrl String? @db.Text
-  iconName String?
+  imageUrl     String?  @db.Text
+  iconName     String?
 
-  badge        String? @default("Open")
-  activeColor  String? @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
-  bgColor      String? @default("#F8FAFC")
+  badge        String?  @default("Open")
+  activeColor  String?  @default("shadow-indigo-500/20 text-indigo-600 border-indigo-100")
+  bgColor      String?  @default("#F8FAFC")
 
-  order Int @default(0)
+  order        Int      @default(0)
 
-  isVisible Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  isVisible    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }

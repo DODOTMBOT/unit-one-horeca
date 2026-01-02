@@ -2,7 +2,15 @@
 
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
-import { User, ShieldCheck, ChevronRight, ShoppingBag, LogOut, LayoutDashboard } from "lucide-react";
+import { 
+  User, 
+  ShieldCheck, 
+  ChevronRight, 
+  ShoppingBag, 
+  LogOut, 
+  LayoutDashboard,
+  ClipboardCheck // Новая иконка для чек-листов
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import useSWR from "swr";
 
@@ -12,26 +20,35 @@ export default function UserNav() {
   const { data: session, status } = useSession();
   const [mounted, setMounted] = useState(false);
 
-  // 1. ПРОВЕРКИ РОЛЕЙ
+  // 1. ПРОВЕРКИ ДОСТУПА
   const isSuperAdmin = 
     session?.user?.role === "ADMIN" || 
     session?.user?.role === "OWNER" || 
     session?.user?.email === 'ar.em.v@yandex.ru';
 
-  const hasAnyAdminAccess = session?.user?.permissions?.some((p: string) => 
-    p.startsWith("/admin")
+  const hasAdminAccess = isSuperAdmin || session?.user?.permissions?.some((p: string) => 
+    p === "/admin" || p.startsWith("/admin/")
   );
 
-  const showAdminButton = isSuperAdmin || hasAnyAdminAccess;
-  const isPartner = session?.user?.role === "PARTNER";
+  const hasPartnerAccess = session?.user?.role === "PARTNER" || session?.user?.permissions?.some((p: string) => 
+    p === "/partner" || p.startsWith("/partner/")
+  );
 
   const canSeeOrders = isSuperAdmin || session?.user?.permissions?.includes("/admin/orders");
   
+  // 2. ПОЛУЧЕНИЕ ДАННЫХ (SWR)
+  // Счетчик заказов
   const { data: countData } = useSWR(canSeeOrders ? "/api/admin/orders/count" : null, fetcher, {
     refreshInterval: 30000, 
   });
 
+  // Счетчик активных чек-листов для сотрудника
+  const { data: checklistData } = useSWR(session?.user ? "/api/checklists/my-pending/count" : null, fetcher, {
+    refreshInterval: 60000, // Проверяем раз в минуту
+  });
+
   const ordersCount = countData?.count || 0;
+  const pendingChecklistsCount = checklistData?.count || 0;
 
   useEffect(() => {
     setMounted(true);
@@ -55,6 +72,20 @@ export default function UserNav() {
   return (
     <div className="flex items-center gap-2">
       
+      {/* Иконка ЧЕК-ЛИСТЫ (уведомление для сотрудника) */}
+      {pendingChecklistsCount > 0 && (
+        <Link
+          href="/tasks" // Эту страницу мы создадим следующей
+          title={`У вас ${pendingChecklistsCount} назначенных чек-листа`}
+          className="group relative flex h-10 w-10 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-50 text-amber-600 transition-all hover:scale-110 shadow-lg shadow-amber-200/50"
+        >
+          <ClipboardCheck size={18} strokeWidth={2.5} className="animate-bounce" />
+          <span className="absolute -right-1 -top-1 flex h-4.5 min-w-[18px] px-1 items-center justify-center rounded-full bg-rose-500 text-[8px] font-black text-white ring-2 ring-white">
+            {pendingChecklistsCount}
+          </span>
+        </Link>
+      )}
+
       {/* Иконка ЗАКАЗЫ */}
       {canSeeOrders && ordersCount > 0 && (
         <Link
@@ -70,22 +101,23 @@ export default function UserNav() {
       )}
 
       {/* КНОПКА ПАРТНЕРА */}
-      {isPartner && (
+      {hasPartnerAccess && (
         <Link 
           href="/partner" 
+          title="Панель партнёра"
           className="group flex items-center gap-3 pl-4 pr-5 py-2 bg-white border border-slate-100 rounded-full hover:border-indigo-400 transition-all"
         >
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-50 text-slate-400 group-hover:text-indigo-500 transition-all">
             <LayoutDashboard size={14} strokeWidth={2} />
           </div>
           <span className="hidden sm:block text-[9px] font-black uppercase tracking-widest text-[#1e1b4b]">
-            Партнёр
+            Офис
           </span>
         </Link>
       )}
 
-      {/* Иконка АДМИН */}
-      {showAdminButton && (
+      {/* КНОПКА АДМИНА */}
+      {hasAdminAccess && (
         <Link 
           href="/admin" 
           title="Панель администратора"
