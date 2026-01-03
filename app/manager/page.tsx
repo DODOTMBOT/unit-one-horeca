@@ -27,8 +27,8 @@ interface ManagerSection {
 export default async function ManagerHub() {
   const session = await getServerSession(authOptions);
   
-  if (!session || !["MANAGER", "PARTNER", "OWNER"].includes(session.user.role)) {
-    redirect("/");
+if (!session?.user?.role || !["MANAGER", "PARTNER", "OWNER"].includes(session.user.role as string)) {
+      redirect("/");
   }
 
   const establishments = await prisma.establishment.findMany({
