@@ -20,6 +20,11 @@ declare module "next-auth" {
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+  
+  pages: {
+    signIn: "/auth/signin", 
+  },
+
   callbacks: {
     async jwt({ token, user }) {
       const userId = user?.id || token.sub;
@@ -60,11 +65,21 @@ export const authOptions: NextAuthOptions = {
       name: "Credentials",
       credentials: { login: { type: "text" }, password: { type: "password" } },
       async authorize(credentials) {
+        if (!credentials?.login || !credentials?.password) return null;
+
         const user = await prisma.user.findFirst({
-          where: { OR: [{ login: credentials?.login }, { email: credentials?.login }] }
+          where: { OR: [{ login: credentials.login }, { email: credentials.login }] }
         });
-        if (user && await bcrypt.compare(credentials!.password, user.password!)) {
-          return { id: user.id, name: user.name, email: user.email, role: user.role, roleId: user.roleId, partnerId: user.partnerId };
+        
+        if (user && user.password && await bcrypt.compare(credentials.password, user.password)) {
+          return { 
+            id: user.id, 
+            name: user.name, 
+            email: user.email, 
+            role: user.role, 
+            roleId: user.roleId, 
+            partnerId: user.partnerId 
+          };
         }
         return null;
       }
