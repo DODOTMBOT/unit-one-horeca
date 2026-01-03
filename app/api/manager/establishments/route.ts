@@ -6,8 +6,8 @@ import { NextResponse } from "next/server";
 export async function GET() {
   const session = await getServerSession(authOptions);
   
-  if (!session || !["MANAGER", "PARTNER", "OWNER"].includes(session.user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+if (!session?.user?.role || !["MANAGER", "PARTNER", "OWNER"].includes(session.user.role as string)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Находим заведения, где текущий пользователь числится в списке сотрудников
